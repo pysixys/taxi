@@ -73,7 +73,7 @@ function* getActiveOrdersSaga({ payload: { estimate } }: TAction) {
           call(cancelOrdersOnNextExpireSaga, orders),
           take(ActionTypes.GET_ACTIVE_ORDERS_REQUEST),
         ])
-        if (keptOrders === undefined)
+        if (!keptOrders)
           break
         orders = keptOrders
         yield put({
@@ -161,6 +161,8 @@ function* cancelOrdersOnNextExpireSaga(orders: IOrder[]) {
       ) :
       value
   , Infinity) * 1000 - +moment()
+  if (nextCancel === Infinity)
+    return null
   yield call(() => new Promise(resolve => setTimeout(resolve, nextCancel)))
   return yield* cancelExpiredOrdersSaga(orders)
 }
