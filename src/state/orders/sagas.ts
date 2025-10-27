@@ -1,143 +1,147 @@
-import { all, race, fork, take, takeEvery, put } from 'redux-saga/effects'
+import { all, race, fork, take, put } from 'redux-saga/effects'
 import moment from 'moment'
 import { TAction } from '../../types'
-import {
-  EUserRoles,
-  EOrderTypes, IOrder,
-  EBookingStates,
-} from '../../types/types'
+import { EUserRoles, EOrderTypes, IOrder } from '../../types/types'
 import SITE_CONSTANTS from '../../siteConstants'
-import * as API from '../../API'
 import { getCurrentPosition } from '../../tools/utils'
-import { select, call } from '../../tools/sagaUtils'
-import { calculateFinalPrice } from '../../components/modals/RatingModal'
+import { select, call, concurrency } from '../../tools/sagaUtils'
+import { updateCompletedOrderDuration } from '../../tools/order'
+import * as API from '../../API'
+import { IRootState } from '..'
 import { getCar } from '../user/actionCreators'
 import { user } from '../user/selectors'
 import { setSelectedOrder } from '../clientOrder/actionCreators'
 import { getAreasBetweenPoints } from '../areas/actionCreators'
 import { ActionTypes } from './constants'
-
-// Helper function to update duration and price for completed orders
-const updateCompletedOrdersDuration = (orders: IOrder[]) => {
-  return orders.map(order => {
-    if (order?.b_state === EBookingStates.Completed && order?.b_options?.pricingModel) {
-      const options = order.b_options.pricingModel.options || {}
-      options.duration = moment(order.b_completed).diff(order.b_start_datetime, 'minutes')
-      const newPrice = calculateFinalPrice(order)
-      if (typeof newPrice === 'number') {
-        order.b_options.pricingModel.price = newPrice
-      }
-    }
-    return order
-  })
-}
+import {
+  moduleSelector,
+  activeOrders, readyOrders, historyOrders,
+  orderMutates,
+} from './selectors'
 
 export const saga = function* () {
   yield all([
-    takeEvery(ActionTypes.GET_ACTIVE_ORDERS_REQUEST, getActiveOrdersSaga),
-    takeEvery(ActionTypes.GET_READY_ORDERS_REQUEST, getReadyOrdersSaga),
-    takeEvery(ActionTypes.GET_HISTORY_ORDERS_REQUEST, getHistoryOrdersSaga),
+    concurrency({
+      action: ActionTypes.GET_ACTIVE_ORDERS_REQUEST,
+      saga: getOrdersGroupSaga,
+      parallelKey: 0,
+      sequenceKey: {},
+      leading: true,
+    }, {
+      action: ActionTypes.GET_READY_ORDERS_REQUEST,
+      saga: getOrdersGroupSaga,
+      parallelKey: 0,
+      sequenceKey: {},
+      leading: true,
+    }, {
+      action: ActionTypes.GET_HISTORY_ORDERS_REQUEST,
+      saga: getOrdersGroupSaga,
+      parallelKey: 0,
+      sequenceKey: {},
+      leading: true,
+    }, {
+      action: [
+        ActionTypes.WATCH_ORDER,
+        ActionTypes.GET_ORDER_REQUEST,
+        ActionTypes.END_MUTATION,
+      ],
+      saga: getOrderByIdSaga,
+      parallelKey: 1,
+      sequenceKey: ({ payload }: TAction) => payload,
+      leading: ({ type, payload }: TAction) =>
+        type !== ActionTypes.END_MUTATION ? payload : undefined,
+      latest: ({ type, payload }: TAction) =>
+        type === ActionTypes.END_MUTATION ? payload : undefined,
+    }),
   ])
 }
 
-function* getActiveOrdersSaga({ payload: { estimate } }: TAction) {
-  try {
-    let orders = yield* getOrdersSaga(EOrderTypes.Active)
+function* getOrdersGroupSaga({ type, payload: { estimate } }: TAction) {
+  const {
+    successAction, failAction, geolocationSuccessAction, geolocationFailAction,
+    prevSelector, ordersType,
+  } = ({
+    [ActionTypes.GET_ACTIVE_ORDERS_REQUEST]: {
+      successAction: ActionTypes.GET_ACTIVE_ORDERS_SUCCESS,
+      failAction: ActionTypes.GET_ACTIVE_ORDERS_FAIL,
+      geolocationSuccessAction:
+        ActionTypes.GET_ACTIVE_ORDERS_TAKER_GEOLOCATION_SUCCESS,
+      geolocationFailAction:
+        ActionTypes.GET_ACTIVE_ORDERS_TAKER_GEOLOCATION_FAIL,
+      prevSelector: activeOrders,
+      ordersType: EOrderTypes.Active,
+    },
+    [ActionTypes.GET_READY_ORDERS_REQUEST]: {
+      successAction: ActionTypes.GET_READY_ORDERS_SUCCESS,
+      failAction: ActionTypes.GET_READY_ORDERS_FAIL,
+      geolocationSuccessAction:
+        ActionTypes.GET_READY_ORDERS_TAKER_GEOLOCATION_SUCCESS,
+      geolocationFailAction:
+        ActionTypes.GET_READY_ORDERS_TAKER_GEOLOCATION_FAIL,
+      prevSelector: readyOrders,
+      ordersType: EOrderTypes.Ready,
+    },
+    [ActionTypes.GET_HISTORY_ORDERS_REQUEST]: {
+      successAction: ActionTypes.GET_HISTORY_ORDERS_SUCCESS,
+      failAction: ActionTypes.GET_HISTORY_ORDERS_FAIL,
+      geolocationSuccessAction:
+        ActionTypes.GET_HISTORY_ORDERS_TAKER_GEOLOCATION_SUCCESS,
+      geolocationFailAction:
+        ActionTypes.GET_HISTORY_ORDERS_TAKER_GEOLOCATION_FAIL,
+      prevSelector: historyOrders,
+      ordersType: EOrderTypes.History,
+    },
+  } as const)[type]!
 
-    orders = yield* cancelExpiredOrdersSaga(orders)
-    if (orders.length === 1)
-      yield put(setSelectedOrder(orders[0].b_id))
-    if (orders.length === 0)
-      yield put(setSelectedOrder(null))
-    yield put({ type: ActionTypes.GET_ACTIVE_ORDERS_SUCCESS, payload: orders })
+  const prev = (yield* select(prevSelector)) ?? []
+  try {
+    let orders = yield* getOrdersSaga(ordersType)
+
+    if (type === ActionTypes.GET_ACTIVE_ORDERS_REQUEST) {
+      orders = yield* cancelExpiredOrdersSaga(orders)
+      if (orders.length === 1)
+        yield put(setSelectedOrder(orders[0].b_id))
+      if (orders.length === 0)
+        yield put(setSelectedOrder(null))
+    }
+    yield put({ type: successAction, payload: orders })
 
     try {
       const geolocation = estimate ?
         yield* getOrdersTakerGeolocationSaga(orders) :
         undefined
       if (geolocation)
-        yield put({
-          type: ActionTypes.GET_ACTIVE_ORDERS_TAKER_GEOLOCATION_SUCCESS,
-          payload: geolocation,
-        })
+        yield put({ type: geolocationSuccessAction, payload: geolocation })
     } catch (error) {
-      yield put({
-        type: ActionTypes.GET_ACTIVE_ORDERS_TAKER_GEOLOCATION_FAIL,
-        payload: error,
-      })
+      yield put({ type: geolocationFailAction, payload: error })
     }
 
-    yield fork(function*() {
-      while (orders.length > 0) {
-        const [keptOrders] = yield race([
-          call(cancelOrdersOnNextExpireSaga, orders),
-          take(ActionTypes.GET_ACTIVE_ORDERS_REQUEST),
-        ])
-        if (!keptOrders)
-          break
-        orders = keptOrders
-        yield put({
-          type: ActionTypes.GET_ACTIVE_ORDERS_SUCCESS,
-          payload: orders,
-        })
-      }
-    })
+    if (type === ActionTypes.GET_ACTIVE_ORDERS_REQUEST)
+      yield fork(function*() {
+        while (orders.length > 0) {
+          const [keptOrders] = yield race([
+            call(cancelOrdersOnNextExpireSaga, orders),
+            take(ActionTypes.GET_ACTIVE_ORDERS_REQUEST),
+          ])
+          if (!keptOrders)
+            break
+          orders = keptOrders
+          yield put({ type: successAction, payload: orders })
+        }
+      })
+
+    yield* afterOrdersChangeSaga(prev, orders)
   }
 
   catch (error) {
     console.error(error)
-    yield put({ type: ActionTypes.GET_ACTIVE_ORDERS_FAIL, payload: error })
+    yield put({ type: failAction, payload: error })
   }
 }
 
-function* getReadyOrdersSaga({ payload: { estimate } }: TAction) {
-  try {
-    const orders = yield* getOrdersSaga(EOrderTypes.Ready)
-    yield put({ type: ActionTypes.GET_READY_ORDERS_SUCCESS, payload: orders })
-    try {
-      const geolocation = estimate ?
-        yield* getOrdersTakerGeolocationSaga(orders) :
-        undefined
-      if (geolocation)
-        yield put({
-          type: ActionTypes.GET_READY_ORDERS_TAKER_GEOLOCATION_SUCCESS,
-          payload: geolocation,
-        })
-    } catch (error) {
-      yield put({
-        type: ActionTypes.GET_READY_ORDERS_TAKER_GEOLOCATION_FAIL,
-        payload: error,
-      })
-    }
-  } catch (error) {
-    console.error(error)
-    yield put({ type: ActionTypes.GET_READY_ORDERS_FAIL, payload: error })
-  }
-}
-
-function* getHistoryOrdersSaga({ payload: { estimate } }: TAction) {
-  try {
-    const orders = yield* getOrdersSaga(EOrderTypes.History)
-    yield put({ type: ActionTypes.GET_HISTORY_ORDERS_SUCCESS, payload: orders })
-    try {
-      const geolocation = estimate ?
-        yield* getOrdersTakerGeolocationSaga(orders) :
-        undefined
-      if (geolocation)
-        yield put({
-          type: ActionTypes.GET_HISTORY_ORDERS_TAKER_GEOLOCATION_SUCCESS,
-          payload: geolocation,
-        })
-    } catch (error) {
-      yield put({
-        type: ActionTypes.GET_HISTORY_ORDERS_TAKER_GEOLOCATION_FAIL,
-        payload: error,
-      })
-    }
-  } catch (error) {
-    console.error(error)
-    yield put({ type: ActionTypes.GET_HISTORY_ORDERS_FAIL, payload: error })
-  }
+function* getOrderByIdSaga({ payload }: TAction) {
+  if (!(yield* select(orderMutates, payload)))
+    yield* getOrderSaga(payload)
 }
 
 function* getOrdersSaga(
@@ -146,8 +150,30 @@ function* getOrdersSaga(
   const userID = (yield* select(user))?.u_id
   if (!userID) throw new Error()
 
-  const _orders = yield* call(API.getOrders, orderType)
-  return updateCompletedOrdersDuration(_orders)
+  const orders = yield* call(API.getOrders, orderType)
+  return orders.map(updateCompletedOrderDuration)
+}
+
+function* getOrderSaga(id: IOrder['b_id']) {
+  try {
+    const order = yield* call(API.getOrder, id)
+    if (!order)
+      return
+    yield put({ type: ActionTypes.GET_ORDER_SUCCESS, payload: order })
+  } catch (error) {
+    yield put({ type: ActionTypes.GET_ORDER_FAIL, payload: { id, error } })
+  }
+}
+
+function* afterOrdersChangeSaga(prev: IOrder[], current: IOrder[]) {
+  const currentIds = new Set(current.map(order => order.b_id))
+  const diff = prev.filter(order => !currentIds.has(order.b_id))
+
+  const existing =
+    yield* select((state: IRootState) => moduleSelector(state).orders)
+  for (const order of diff)
+    if (existing.has(order.b_id))
+      yield* getOrderSaga(order.b_id)
 }
 
 function* cancelOrdersOnNextExpireSaga(orders: IOrder[]) {

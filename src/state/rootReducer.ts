@@ -5,6 +5,8 @@ import userReducer from './user/reducer'
 import { moduleName as ordersModule } from './orders/constants'
 import ordersReducer from './orders/reducer'
 import { moduleName as orderModule } from './order/constants'
+import ordersDetailsReducer from './ordersDetails/reducer'
+import { moduleName as ordersDetailsModule } from './ordersDetails/constants'
 import orderReducer from './order/reducer'
 import { moduleName as clientOrderModule } from './clientOrder/constants'
 import clientOrderReducer from './clientOrder/reducer'
@@ -18,6 +20,7 @@ import areasReducer from './areas/reducer'
 const rootReducer = combineReducers({
   [userModule]: userReducer,
   [ordersModule]: ordersReducer,
+  [ordersDetailsModule]: ordersDetailsReducer,
   [orderModule]: orderReducer,
   [clientOrderModule]: clientOrderReducer,
   [configModule]: configReducer,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './styles.scss'
 import { MapContainer, Marker, TileLayer, Polyline, useMap } from 'react-leaflet'
@@ -12,7 +12,6 @@ import * as API from '../../API'
 import {
   EBookingDriverState,
   EOrderProfitRank,
-  IAddressPoint,
   IOrder,
   IUser,
   EStatuses,
@@ -26,7 +25,7 @@ import {
   getTileServerUrl,
   formatCurrency,
 } from '../../tools/utils'
-import { EDriverTabs, OrderAddressContext } from '.'
+import { EDriverTabs } from '.'
 import SITE_CONSTANTS from '../../siteConstants'
 import CardModal from '../../components/modals/CardModal'
 import { createPortal } from 'react-dom'
@@ -98,11 +97,7 @@ const DriverOrderMapModeContent: React.FC<IContentProps> = ({
   getOrder,
 }) => {
 
-  const context = useContext(OrderAddressContext);
-
-  const [activeModal, setActiveModal] = useState(false)
   const [choosedOrder, setChoosedOrder] = useState<IOrder|null>(null)
-  const [address, setAddress] = useState<IAddressPoint|null>(null)
 
   const navigate = useNavigate()
   const map = useMap()
@@ -169,9 +164,9 @@ const DriverOrderMapModeContent: React.FC<IContentProps> = ({
                 latitude: p1[0],
                 longitude: p1[1],
               }, {
-              latitude: p2[0],
-              longitude: p2[1],
-            },
+                latitude: p2[0],
+                longitude: p2[1],
+              },
             )
             setArrowIcon(new L.DivIcon({
               iconSize: [40, 40],
@@ -193,9 +188,9 @@ const DriverOrderMapModeContent: React.FC<IContentProps> = ({
 
   const performingOrder = activeOrders
     ?.find(item => ([
-      EBookingDriverState.Performer, EBookingDriverState.Arrived
+      EBookingDriverState.Performer, EBookingDriverState.Arrived,
     ] as any[]).includes(
-      item.drivers?.find(item => item.u_id === user?.u_id)?.c_state)
+      item.drivers?.find(item => item.u_id === user?.u_id)?.c_state),
     )
 
   const currentOrder = activeOrders
@@ -244,82 +239,72 @@ const DriverOrderMapModeContent: React.FC<IContentProps> = ({
           ...(performingOrder ? [performingOrder] : []),
         ]
           .filter(item => item.b_start_latitude && item.b_start_longitude)
-          .map(item => {
-            const angle = getAngle(
-              {
-                latitude: item.b_start_latitude,
-                longitude: item.b_start_longitude,
-              }, {
-              latitude: item.b_destination_latitude,
-              longitude: item.b_destination_longitude,
-            },
-            )
-
-            return (
-              <Marker
-                position={[item.b_start_latitude, item.b_start_longitude] as L.LatLngExpression}
-                icon={new L.DivIcon({
-                  iconAnchor: [20, 40],
-                  popupAnchor: [0, -35],
-                  iconSize: [50, 50],
-                  shadowSize: [29, 40],
-                  shadowAnchor: [7, 40],
-                  html: `<div class='order-marker${
-                    item.profitRank !== undefined ?
-                      ' order-marker--profit--' + {
-                        [EOrderProfitRank.Low]: 'low',
-                        [EOrderProfitRank.Medium]: 'medium',
-                        [EOrderProfitRank.High]: 'high',
-                      }[item.profitRank] :
-                      ''
-                  }'>
-                      <div class='order-marker-hint'>
-                        <div class='row-info'>
-                          ${item.b_destination_address}
-                        </div>
-                        <div class='row-info'>
-                          <div>${item.b_start_datetime.format(dateFormatTime)}</div>
-                          <div class='competitors-num'>${item.drivers?.length || 0}</div>
-                        </div>
-                        <div class='row-info'>
-                          <div class='price'>${item.b_price_estimate || 0}</div>
-                          <div class='tips'>${item.b_tips || 0}</div>
-                          <img
-                            src='${images.mapMarkerProfit}'
-                          />
-                          <div class='order-profit'>${item.b_passengers_count || 0}</div>
-                        </div>
-                        <div class='row-info'>
-                          <img
-                            src='${images.mapMarkerProfit}'
-                          />
-                          <div class='order-profit-estimation'>${
-                            item.profit !== undefined ?
-                              formatCurrency(item.profit, {
-                                signDisplay: 'always',
-                                currencyDisplay: 'none',
-                              }) :
-                              '+?'
-                          }</div>
-                        </div>
+          .map(item =>
+            <Marker
+              position={[item.b_start_latitude, item.b_start_longitude] as L.LatLngExpression}
+              icon={new L.DivIcon({
+                iconAnchor: [20, 40],
+                popupAnchor: [0, -35],
+                iconSize: [50, 50],
+                shadowSize: [29, 40],
+                shadowAnchor: [7, 40],
+                html: `<div class='order-marker${
+                  item.profitRank !== undefined ?
+                    ' order-marker--profit--' + {
+                      [EOrderProfitRank.Low]: 'low',
+                      [EOrderProfitRank.Medium]: 'medium',
+                      [EOrderProfitRank.High]: 'high',
+                    }[item.profitRank] :
+                    ''
+                }'>
+                    <div class='order-marker-hint'>
+                      <div class='row-info'>
+                        ${item.b_destination_address}
                       </div>
-                      <img
-                        src='${
-                          item === performingOrder ? images.mapOrderPerforming :
-                          item.b_voting ? images.mapOrderVoting :
-                          images.mapOrderWating
-                        }'
-                      >
-                    </div>`,
-                })}
-                eventHandlers={{
-                  // click: () => navigate(`/driver-order/${item.b_id}`),
-                  click: () => setChoosedOrder(item),
-                }}
-                key={item.b_id}
-              />
-            )
-          })
+                      <div class='row-info'>
+                        <div>${item.b_start_datetime.format(dateFormatTime)}</div>
+                        <div class='competitors-num'>${item.drivers?.length || 0}</div>
+                      </div>
+                      <div class='row-info'>
+                        <div class='price'>${item.b_price_estimate || 0}</div>
+                        <div class='tips'>${item.b_tips || 0}</div>
+                        <img
+                          src='${images.mapMarkerProfit}'
+                        />
+                        <div class='order-profit'>${item.b_passengers_count || 0}</div>
+                      </div>
+                      <div class='row-info'>
+                        <img
+                          src='${images.mapMarkerProfit}'
+                        />
+                        <div class='order-profit-estimation'>${
+                          item.profit !== undefined ?
+                            formatCurrency(item.profit, {
+                              signDisplay: 'always',
+                              currencyDisplay: 'none',
+                            }) :
+                            '+?'
+                        }</div>
+                      </div>
+                    </div>
+                    <img
+                      src='${
+                        item === performingOrder ?
+                          images.mapOrderPerforming :
+                          item.b_voting ?
+                          images.mapOrderVoting :
+                            images.mapOrderWating
+                      }'
+                    >
+                  </div>`,
+              })}
+              eventHandlers={{
+                // click: () => navigate(`/driver-order/${item.b_id}`),
+                click: () => setChoosedOrder(item),
+              }}
+              key={item.b_id}
+            />,
+          )
       }
       <Fullscreen
         position="topleft"
@@ -350,13 +335,10 @@ const DriverOrderMapModeContent: React.FC<IContentProps> = ({
           active={choosedOrder !== null}
           avatar={avatar}
           avatarSize={avatarSize}
-          order={choosedOrder}
-          // user={user}
-          loadedAddress={context?.ordersAddressRef.current[choosedOrder.b_id] || null}
           orderId={choosedOrder?.b_id || ''}
           closeModal={() => setChoosedOrder(null)}
         />,
-        document.body
+        document.body,
       )}
       {/* {
         !!activeOrders?.length && (

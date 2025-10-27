@@ -1,6 +1,6 @@
 import { createSelector, weakMapMemoize } from 'reselect'
 import { IOrder, ICar } from '../../types/types'
-import { estimateOrder } from '../../tools/estimateOrder'
+import { estimateOrder } from '../../tools/order'
 import { IWayGraph } from '../../tools/maps'
 import { IRootState } from '../'
 import { wayGraph } from '../areas/selectors'
@@ -74,3 +74,22 @@ export const historyOrders = createSelector(
   [pureHistoryOrders, historyOrdersTakerGeolocation, car, wayGraph],
   estimatedOrders,
 )
+
+const ordersData = (state: IRootState) => moduleSelector(state).orders
+export const orders = createSelector(
+  ordersData,
+  orders => orders.map(order => order.value ?? order.partial).filter(Boolean),
+  { memoizeOptions: {
+    resultEqualityCheck: (oldValue, newValue) => newValue.equals(oldValue),
+  } },
+)
+export function order(
+  state: IRootState,
+  id: IOrder['b_id'],
+): IOrder | undefined {
+  const orderData = ordersData(state).get(id)
+  return orderData?.value ?? orderData?.partial ?? undefined
+}
+
+export const orderMutates = (state: IRootState, id: IOrder['b_id']) =>
+  (ordersData(state).get(id)?.mutations as number) > 0

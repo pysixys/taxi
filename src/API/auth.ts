@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { EUserRoles, ITokens, IUser } from '../types/types'
-import { convertUser, reverseConvertUser } from '../tools/utils'
+import { convertUser, reverseConvertUser } from '../tools/convert'
 import { addToFormData, apiMethod, IApiMethodArguments } from '../tools/api'
 import Config from '../config'
 import { ERegistrationType } from '../state/user/constants'

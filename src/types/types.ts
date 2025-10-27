@@ -394,7 +394,7 @@ export interface IPlaceResponse {
   type?: string,
   importance?: number,
   icon?: string,
-  address: IAddressResponse,
+  address: IAddressDetails,
   extratags?: {
     capital?: 'yes' | 'no',
     website?: string,
@@ -404,7 +404,7 @@ export interface IPlaceResponse {
   }
 }
 
-interface IAddressResponse {
+export interface IAddressDetails {
   continent?: string,
   country?: string,
   country_code?: string,
@@ -631,6 +631,13 @@ export interface IAddressPoint {
   shortAddress?: string,
   latitude?: number,
   longitude?: number
+}
+
+export interface ILoadedAddressPoint extends IAddressPoint {
+  address: string
+  latitude: number
+  longitude: number
+  details: IAddressDetails
 }
 
 export enum EStatuses {

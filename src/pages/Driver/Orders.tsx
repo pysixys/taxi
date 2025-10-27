@@ -1,4 +1,4 @@
-import React, { createContext, useState } from 'react'
+import React, { useState } from 'react'
 import { connect, ConnectedProps } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import PageSection from '../../components/PageSection'
@@ -11,9 +11,9 @@ import images from '../../constants/images'
 import { IUserState } from '../../state/user/constants'
 import { IOrdersState } from '../../state/orders/constants'
 import { modalsActionCreators } from '../../state/modals'
-import { EBookingDriverState, EColorTypes, IAddressPoint, IUser } from '../../types/types'
+import { EBookingDriverState, EColorTypes, IUser } from '../../types/types'
 import { EDriverTabs } from '.'
-import MiniOrder from '../../components/driver-order/mini-order'
+import MiniOrder from '../../components/MiniOrder'
 import { statuses } from '../../constants/miniOrders'
 import * as API from '../../API'
 import { userActionCreators } from '../../state/user'
@@ -114,7 +114,7 @@ const DriverOrders: React.FC<IProps> = ({
                 order={item}
                 user={user as IUser}
               />
-            ))) || <div className='driver-orders-empty' >{t(TRANSLATION.NO_ACTUAL_DRIVE)}</div>
+          ))) || <div className='driver-orders-empty' >{t(TRANSLATION.NO_ACTUAL_DRIVE)}</div>
         }
       </div>
       {!!candidateOrders?.length && (

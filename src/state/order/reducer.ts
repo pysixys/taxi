@@ -2,14 +2,13 @@ import { Record } from 'immutable'
 import { TAction } from '../../types'
 import { EStatuses } from '../../types/types'
 import { ActionTypes, IOrderState } from './constants'
-import { IUser } from '../../types/types'
 
 export const record = Record<IOrderState>({
   client: null, destination: null, start: null,
   order: null,
   status: EStatuses.Loading,
   message: '',
-  selectedOrderId: null
+  selectedOrderId: null,
 })
 
 export default function reducer(state = new record(), action: TAction) {

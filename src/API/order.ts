@@ -10,10 +10,8 @@ import {
   IOrder,
   IUser,
 } from '../types/types'
-import {
-  cloneFormData,
-  convertOrder, reverseConvertOrder,
-} from '../tools/utils'
+import { cloneFormData } from '../tools/utils'
+import { convertOrder, reverseConvertOrder } from '../tools/convert'
 import {
   addToFormData, apiMethod, IApiMethodArguments, IResponseFields,
 } from '../tools/api'

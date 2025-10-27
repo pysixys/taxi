@@ -1,10 +1,15 @@
-import _ from 'lodash'
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import {
+  useSelector as useReduxSelector,
+  useDispatch as useReduxDispatch,
+} from 'react-redux'
 import { useLocation } from 'react-router-dom'
 import {
   useWatch,
   DeepPartialSkipArrayKey, Control, FieldValues,
 } from 'react-hook-form'
+import _ from 'lodash'
+import { IRootState, IDispatch } from '../state'
 import { getItem, setItem } from './localStorage'
 
 interface IAdditionalDataFlags {
@@ -30,7 +35,7 @@ export const useCachedState = <T>(
   additionalData: IAdditionalDataFlags = {},
 ): [T, React.Dispatch<React.SetStateAction<T>>, IAdditionalData] => {
   const [value, setValue] =
-    useState<T>(getItem(key, defaultValue, allowableValues))
+    useState<T>(() => getItem(key, defaultValue, allowableValues))
 
   let dirty: boolean = false
   let setDirty: React.Dispatch<React.SetStateAction<boolean>>
@@ -47,19 +52,19 @@ export const useCachedState = <T>(
     }
   }, [value])
 
-  return useMemo(() => [
+  return [
     value,
     v => {
       if (typeof v === 'function')
         v = (v as (v: T) => T)(value)
-      setItem(key, v)
       setValue(v)
+      setItem(key, v)
     },
     {
       dirty,
       previousValue,
     },
-  ], [value, dirty, previousValue])
+  ]
 }
 
 /** Returns value before update */
@@ -125,4 +130,19 @@ export const useVisibility = (defaultValue: boolean = false): [boolean, () => vo
   const toggleVisibility = () => setVisible(!visible)
 
   return [visible, toggleVisibility]
+}
+
+export const useSimpleSelector = useReduxSelector.withTypes<IRootState>()
+export const useDispatch = useReduxDispatch.withTypes<IDispatch>()
+
+export function useSelector<
+  TSelector extends(state: IRootState, ...args: any[]) => any
+>(
+  selector: TSelector,
+  ...args: Parameters<TSelector> extends [any, ...infer Rest] ? Rest : never
+): ReturnType<TSelector> {
+  return useReduxSelector(useCallback(
+    (state: IRootState) => selector(state, ...args),
+    [selector, ...args],
+  ))
 }

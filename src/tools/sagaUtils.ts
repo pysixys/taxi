@@ -1,8 +1,11 @@
+import { Task, channel } from 'redux-saga'
 import {
-  Tail, SelectEffect, CallEffect, SagaReturnType,
+  Tail, SelectEffect, CallEffect, SagaReturnType, ActionPattern,
   select as sagaSelect,
   call as sagaCall,
+  race, take, fork, put, cancel,
 } from 'redux-saga/effects'
+import { firstItem } from './utils'
 
 export function* select<Fn extends(...args: any[]) => any>(
   fn: Fn,
@@ -16,4 +19,127 @@ export function* call<Fn extends(...args: any[]) => any>(
   ...args: Parameters<Fn>
 ): Generator<CallEffect<SagaReturnType<Fn>>, SagaReturnType<Fn>> {
   return yield sagaCall(fn, ...args)
+}
+
+interface IConcurrentSaga<TAction> {
+  action: ActionPattern
+  saga: (action: TAction) => Generator
+  /** Параллельно могут выполняться только задачи с одинаковыми `parallelKey` */
+  parallelKey?: unknown | ((action: TAction) => unknown)
+  /** Параллельно могут выполняться только задачи с разными `sequenceKey` */
+  sequenceKey?: unknown | ((action: TAction) => unknown)
+  /**
+   * Добавляет поведение на манер `takeLatest`,
+   * опционально только для задач с совпадающими результатами функции
+   */
+  latest?: boolean | ((action: TAction) => unknown | undefined)
+  /**
+   * Добавляет поведение на манер `takeLeading`,
+   * опционально только для задач с совпадающими результатами функции
+   */
+  leading?: boolean | ((action: TAction) => unknown | undefined)
+}
+
+export function* concurrency<TAction>(...sagas: IConcurrentSaga<TAction>[]) {
+  const running = new Map<Task, QueueItem>()
+  const queue: QueueItem[] = []
+  const tasksExecutionChannel = yield* call(channel)
+
+  interface QueueItem {
+    sagaIndex: number
+    action: TAction
+    parallelKey: unknown
+    sequenceKey: unknown
+    latestKey?: unknown
+    leadingKey?: unknown
+  }
+
+  while (true) {
+    const [actions = []]: [TAction[]] = yield race([
+      race(sagas.map(({ action }) => take(action))),
+      take(tasksExecutionChannel),
+    ])
+
+    for (const [sagaIndex, action] of actions.entries())
+      if (action) {
+        const {
+          parallelKey: parallel, sequenceKey: sequence,
+          latest, leading,
+        } = sagas[sagaIndex]
+        const parallelKey =
+          typeof parallel === 'function' ? parallel(action) : parallel
+        const sequenceKey =
+          typeof sequence === 'function' ? sequence(action) : sequence
+        const latestKey =
+          typeof latest === 'function' ? latest(action) : latest || undefined
+        const leadingKey =
+          typeof leading === 'function' ? leading(action) : leading || undefined
+        const queueItem = { sagaIndex, action, parallelKey, sequenceKey }
+
+        if (latestKey !== undefined && leadingKey !== undefined)
+          throw new Error(
+            `Simultaneous use of latest key (${latestKey}) ` +
+            `and leading key (${leadingKey})`,
+          )
+
+        if (latestKey !== undefined || leading !== undefined) {
+          const searchFn = (item: QueueItem) =>
+            item.sagaIndex === sagaIndex && (latestKey !== undefined ?
+              item.latestKey === latestKey :
+              item.leadingKey === leadingKey
+            )
+          const runningTask = [...running]
+            .find(([, item]) => searchFn(item))?.[0]
+          const queueIndex = queue.findIndex(searchFn)
+
+          if (latestKey !== undefined) {
+            if (queueIndex !== -1)
+              queue.splice(queueIndex, 1)
+            if (runningTask)
+              yield cancel(runningTask)
+            queue.push({ ...queueItem, latestKey })
+          }
+
+          if (leadingKey !== undefined && (!runningTask && queueIndex === -1))
+            queue.push({ ...queueItem, leadingKey })
+        }
+
+        else
+          queue.push(queueItem)
+      }
+
+    let closestQueueItem = firstItem(running.values()) ?? queue[0]
+    const runningSequences =
+      new Set([...running.values()].map(item => item.sequenceKey))
+    let processedQueueItems = 0
+    for (const item of queue) {
+      const { sagaIndex, action, parallelKey, sequenceKey } = item
+
+      if (
+        (closestQueueItem && parallelKey !== closestQueueItem.parallelKey) ||
+        runningSequences.has(sequenceKey)
+      )
+        break
+      processedQueueItems++
+
+      const { saga } = sagas[sagaIndex]
+      let finished = false
+      const task: Task = yield fork(function*() {
+        try {
+          yield* saga(action)
+        } finally {
+          running.delete(task)
+          finished = true
+          yield put(tasksExecutionChannel, {})
+        }
+      })
+      if (!finished) {
+        running.set(task, item)
+        closestQueueItem = item
+        runningSequences.add(sequenceKey)
+      }
+    }
+
+    queue.splice(0, processedQueueItems)
+  }
 }

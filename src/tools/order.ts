@@ -2,12 +2,40 @@ import moment from 'moment'
 import SITE_CONSTANTS from '../siteConstants'
 import { DEFAULT_CITY_ID, PROFIT_RANKS } from '../constants/orders'
 import {
+  EBookingStates,
   EOrderProfitRank,
   IOrder,
   ICar,
   IOrderEstimation,
 } from '../types/types'
+import { calculateFinalPrice } from '../components/modals/RatingModal'
 import { IWayGraph, IWayGraphNode } from './maps'
+
+export function updateCompletedOrderDuration(order: IOrder): IOrder {
+  if (
+    order.b_state === EBookingStates.Completed &&
+    order.b_options?.pricingModel
+  ) {
+    order = {
+      ...order,
+      b_options: {
+        ...order.b_options,
+        pricingModel: {
+          ...order.b_options.pricingModel,
+          options: {
+            ...(order.b_options.pricingModel.options || {}),
+            duration: moment(order.b_completed)
+              .diff(order.b_start_datetime, 'minutes'),
+          },
+        },
+      },
+    }
+    const newPrice = calculateFinalPrice(order)
+    if (typeof newPrice === 'number')
+      order.b_options!.pricingModel!.price = newPrice
+  }
+  return order
+}
 
 export function estimateOrder(
   order: IOrder,

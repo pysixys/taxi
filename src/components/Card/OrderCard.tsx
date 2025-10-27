@@ -1,16 +1,15 @@
-import React, { useContext, useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { connect, ConnectedProps } from 'react-redux'
 import cn from 'classnames'
 import {
   EBookingDriverState,
   EOrderProfitRank,
-  IAddressPoint,
   IOrder,
   IUser,
 } from '../../types/types'
 import images from '../../constants/images'
 import { CURRENCY } from '../../siteConstants'
-import { t, TRANSLATION } from '../../localization'
 import {
   dateFormatDate,
   dateShowFormat,
@@ -20,14 +19,23 @@ import {
   shortenAddress,
   formatCurrency,
 } from '../../tools/utils'
+import { useSelector } from '../../tools/hooks'
+import {
+  ordersDetailsSelectors,
+  ordersDetailsActionCreators,
+} from '../../state/ordersDetails'
+import { t, TRANSLATION } from '../../localization'
+import { Loader } from '../loader/Loader'
+import CardModal from '../modals/CardModal'
 import './styles.scss'
 
-import * as API from '../../API'
-import CardModal from '../modals/CardModal'
-import { Loader } from '../loader/Loader'
-import { OrderAddressContext } from '../../pages/Driver'
+const mapDispatchToProps = {
+  getOrderStart: ordersDetailsActionCreators.getOrderStart,
+}
 
-interface IOrderCardProps {
+const connector = connect(undefined, mapDispatchToProps)
+
+interface IProps extends ConnectedProps<typeof connector> {
   user: IUser,
   order: IOrder,
   className?: string,
@@ -35,21 +43,33 @@ interface IOrderCardProps {
   onClick?: React.PointerEventHandler<HTMLDivElement>,
   showChat?: boolean
 }
-const OrderCard: React.FC<IOrderCardProps> = ({
+
+function OrderCard({
+  getOrderStart,
   order,
   user,
   className,
   showChat,
   style,
   onClick,
-}) => {
-  // const chatHostDivID = `chatDiv${order.b_id}`
-
-  const context = useContext(OrderAddressContext);
+}: IProps) {
 
   const [activeModal, setActiveModal] = useState(false)
-  const [isFromAddressShort, setIsFromAddressShort] = useState(true)
-  const [address, setAddress] = useState<IAddressPoint|null>(context?.ordersAddressRef.current[order.b_id] || null)
+
+  useEffect(() => {
+    getOrderStart(order)
+  }, [order])
+  let address = useSelector(ordersDetailsSelectors.start, order.b_id)
+  if (address && 'details' in address)
+    address = {
+      ...address,
+      shortAddress: shortenAddress(
+        address.address,
+        address.details.city ||
+        address.details.town ||
+        address.details.village,
+      ),
+    }
 
   const getStatusText = () => {
     if (order.b_voting) return t(TRANSLATION.VOTER)
@@ -66,25 +86,6 @@ const OrderCard: React.FC<IOrderCardProps> = ({
 
   let avatar = images.avatar
   let avatarSize = '48px'
-
-  useEffect(() => {
-    if ( !order.b_start_latitude || !order.b_start_longitude || context?.ordersAddressRef.current[order.b_id] ) return
-    API.reverseGeocode(order.b_start_latitude?.toString(), order.b_start_longitude?.toString())
-      .then(res => {
-        const val = {
-          latitude: order.b_start_latitude,
-          longitude: order.b_start_longitude,
-          address: res.display_name,
-          shortAddress: shortenAddress(
-            res.display_name, res.address.city || res.address.town || res.address.village,
-          ),
-        }
-        if ( context?.ordersAddressRef.current ) {
-          context.ordersAddressRef.current[order.b_id] = val
-        }
-        setAddress(val)
-      })
-  }, [])
 
   return (<>
     <div
@@ -125,10 +126,10 @@ const OrderCard: React.FC<IOrderCardProps> = ({
             {
               order.b_voting &&
               driver?.c_state !== EBookingDriverState.Finished ?
-              t(TRANSLATION.NOW) :
-              order.b_start_datetime?.format(
-                order.b_options?.time_is_not_important ? dateFormatDate : dateShowFormat,
-              )
+                t(TRANSLATION.NOW) :
+                order.b_start_datetime?.format(
+                  order.b_options?.time_is_not_important ? dateFormatDate : dateShowFormat,
+                )
             }
           </label>
         </span>
@@ -138,20 +139,25 @@ const OrderCard: React.FC<IOrderCardProps> = ({
         <span className="status-card__points">
           <div className="status-card__from">
             <span className="status-card__from-address">
-              {t(TRANSLATION.FROM)}: 
-                {address
-                  ? <span>{address?.shortAddress ? address?.shortAddress : address?.address}</span>
-                  : order.b_start_address ? <span>{order.b_start_address}</span> : <Loader />
+              {t(TRANSLATION.FROM)}:
+              {address ?
+                <span>{address?.shortAddress ? address?.shortAddress : address?.address}</span> :
+                order.b_start_address ? <span>{order.b_start_address}</span> : <Loader />
+              }
+              {/* {start?.shortAddress && (
+                <img
+                  src={isFromAddressShort ? images.minusIcon : images.plusIcon}
+                  onClick={(e) => setIsFromAddressShort(prev => !prev)}
+                  alt='change address mode'
+                />
+              )} */}
+
+              {t(TRANSLATION.TO)}:
+              <span>
+                {order.b_destination_address ||
+                  `${order.b_destination_latitude}, ${order.b_destination_longitude}`
                 }
-                {/* {start?.shortAddress && (
-                  <img
-                    src={isFromAddressShort ? images.minusIcon : images.plusIcon}
-                    onClick={(e) => setIsFromAddressShort(prev => !prev)}
-                    alt='change address mode'
-                  />
-                )} */}
-              
-              {t(TRANSLATION.TO)}: <span>{order.b_destination_address || `${order.b_destination_latitude}, ${order.b_destination_longitude}`}</span>
+              </span>
             </span>
           </div>
 
@@ -207,15 +213,12 @@ const OrderCard: React.FC<IOrderCardProps> = ({
         active={activeModal}
         avatar={avatar}
         avatarSize={avatarSize}
-        order={order}
-        // user={user}
-        loadedAddress={address}
         orderId={order.b_id}
         closeModal={() => setActiveModal(false)}
       />,
-      document.body
+      document.body,
     )}
   </>)
 }
 
-export default OrderCard
+export default connector(OrderCard)

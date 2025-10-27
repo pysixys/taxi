@@ -13,14 +13,11 @@ import {
   ITrip,
   IUser,
 } from '../types/types'
+import { getBase64, getHints } from '../tools/utils'
 import {
-  convertTrip,
-  convertUser,
-  getBase64,
-  getHints,
-  reverseConvertTrip,
-  reverseConvertUser,
-} from '../tools/utils'
+  convertTrip, reverseConvertTrip,
+  convertUser, reverseConvertUser,
+} from '../tools/convert'
 import {
   addToFormData, apiMethod, IApiMethodArguments, IResponseFields,
 } from '../tools/api'
@@ -47,7 +44,7 @@ export {
   getUserCar,
   getUserDrivenCar,
   getCar,
-  getCars
+  getCars,
 } from './car'
 export {
   postDrive,
@@ -298,6 +295,9 @@ export const remindPassword = apiMethod<typeof _remindPassword>(_remindPassword,
 export const reverseGeocode = (
   lat: ValueOf<Stringify<IBookingCoordinatesLatitude>>,
   lng: ValueOf<Stringify<IBookingCoordinatesLongitude>>,
+  { details = true }: {
+    details?: boolean
+  } = {},
 ): Promise<IPlaceResponse> => {
   const language = configSelectors.language(store.getState())
 
@@ -307,6 +307,7 @@ export const reverseGeocode = (
       params: {
         lat,
         lon: lng,
+        addressdetails: +details,
         format: 'json',
         'accept-language': language.iso,
       },
@@ -317,6 +318,9 @@ export const reverseGeocode = (
 
 export const geocode = (
   query: string,
+  { details = false }: {
+    details?: boolean
+  } = {},
 ): Promise<IPlaceResponse | null> => {
   const language = configSelectors.language(store.getState())
 
@@ -325,6 +329,7 @@ export const geocode = (
     {
       params: {
         q: query,
+        addressdetails: +details,
         limit: 1,
         format: 'json',
         'accept-language': language.iso,
