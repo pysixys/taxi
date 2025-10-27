@@ -94,10 +94,10 @@ export function parseEntries(entries: string) {
 }
 
 export function parseLanguages(languages: any) {
-  console.log('langs to parse', languages)
-  const languagesList = Object.entries(languages).map(([key, value]: [string, any]) => ({
-    ...value, id: key, logo: `/assets/images/default/flag-${value.logo}.svg`,
-  }))
+  const languagesList = Object.entries(languages)
+    .map(([key, value]: [string, any]) => ({
+      ...value, id: key,
+    }))
 
   // Удаляем русский язык только если конфиг имеет имя "children"
   // Для всех остальных конфигов (включая grzuvill) оставляем русский язык

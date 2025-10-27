@@ -19,6 +19,13 @@ import { Burger } from '../Burger/Burger'
 import { setCookie } from '../../utils/cookies'
 import config from '../../config'
 
+const FLAGS_IMAGES = {
+  ru: images.flagRu,
+  gb: images.flagGb,
+  fr: images.flagFr,
+  ma: images.flagMar,
+}
+
 interface IMenuItem {
   label: string
   action?: (index: number) => any
@@ -190,18 +197,33 @@ const Header: React.FC<IProps> = ({
                               .filter(x => x.iso !== (
                                 config.SavedConfig !== 'children' ? ' ' : 'ru'
                               ))
-                              .map((item: ILanguage) => (
-                                <img
-                                  key={item.id}
-                                  src={item.logo}
-                                  onClick={(e) => {
+                              .map((item: ILanguage) => {
+                                const props: React.ComponentProps<'img'> = {
+                                  key: item.id,
+                                  onClick(e) {
                                     e.stopPropagation()
                                     handleLanguageChange(item)
-                                  }}
-                                  alt={item.native}
-                                  className="menu__language-flag"
-                                />
-                              ))
+                                  },
+                                }
+                                return item.logo in FLAGS_IMAGES ?
+                                  <img
+                                    {...props}
+                                    src={FLAGS_IMAGES[
+                                      item.logo as keyof typeof FLAGS_IMAGES
+                                    ]}
+                                    alt={item.native}
+                                    className="menu__language-flag"
+                                  /> :
+                                  <span
+                                    {...props}
+                                    className={cn(
+                                      'menu__language-flag',
+                                      'menu__language-flag--text',
+                                    )}
+                                  >
+                                    {item.native}
+                                  </span>
+                              })
                             }
                           </div>
                         )}

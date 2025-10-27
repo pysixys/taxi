@@ -190,12 +190,10 @@ $red: #FF2400;
     &__languages {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      padding: 5px;
+      padding: 5px 0;
       background: #FFFFFF;
       border: 1px solid #858585;
       border-radius: 5px;
-      width: 40px;
       position: absolute;
       top: 0;
       right: 0;
@@ -205,13 +203,20 @@ $red: #FF2400;
     }
 
     &__language-flag {
-      height: 18px;
-      width: 26px;
-      margin: 3px;
+      box-sizing: content-box;
+      height: 16px;
+      padding: 3px 5px;
+      object-fit: contain;
+      object-position: left;
       cursor: pointer;
 
       &:hover {
         opacity: 0.8;
+      }
+
+      &--text {
+        width: auto;
+        height: auto;
       }
     }
   }

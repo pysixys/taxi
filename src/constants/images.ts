@@ -11,7 +11,7 @@ const names = {
   checkMark: 'check-mark.svg',
   economTaxi: 'econom-taxi.svg',
   flagRu: 'flag-ru.svg',
-  flagEng: 'flag-eng.svg',
+  flagGb: 'flag-gb.svg',
   flagFr: 'flag-fr.svg',
   flagMar: 'flag-ma.svg',
   activeMarker: 'mark-colored.svg',
@@ -140,7 +140,11 @@ const names = {
 
 export default new Proxy({}, {
   get(target, key: keyof typeof names) {
-    return `/assets/images/${SITE_CONSTANTS.ICONS_PALETTE_FOLDER && `${SITE_CONSTANTS.ICONS_PALETTE_FOLDER}/`
-      }${names[key]}`
+    return key in names ?
+      `/assets/images/${
+        SITE_CONSTANTS.ICONS_PALETTE_FOLDER &&
+          `${SITE_CONSTANTS.ICONS_PALETTE_FOLDER}/`
+      }${names[key]}` :
+      undefined
   },
 }) as typeof names
