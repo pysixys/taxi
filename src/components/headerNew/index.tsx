@@ -13,13 +13,11 @@ import { modalsActionCreators } from '../../state/modals'
 import { clientOrderSelectors } from '../../state/clientOrder'
 import { ordersSelectors } from '../../state/orders'
 import { userSelectors } from '../../state/user'
-import SITE_CONSTANTS, {getConstantValue} from '../../siteConstants'
-import { HamburgerButton } from 'react-hamburger-button'
+import SITE_CONSTANTS from '../../siteConstants'
 import cn from 'classnames'
-import { gradient } from '../../tools/theme'
 import { Burger } from '../Burger/Burger'
 import { setCookie } from '../../utils/cookies'
-import config from "../../config";
+import config from '../../config'
 
 interface IMenuItem {
   label: string
@@ -63,7 +61,7 @@ const Header: React.FC<IProps> = ({
   const location = useLocation()
   const navigate = useNavigate()
 
-  const duration = moment.duration(seconds * 1000)
+  // const duration = moment.duration(seconds * 1000)
 
   const clientOrder = activeOrders?.find(item => item.b_id === selectedOrder)
   const driver = clientOrder?.drivers?.find(item =>
@@ -83,7 +81,6 @@ const Header: React.FC<IProps> = ({
     action: () => {
       setMenuOpened(languagesOpened ? false : true)
       setLanguagesOpened(!languagesOpened)
-
     },
   })
 
@@ -97,30 +94,34 @@ const Header: React.FC<IProps> = ({
   }, 1000)
 
   const onReturn = () => {
-    navigate(-1);
+    navigate(-1)
   }
 
-  const toggleLanguagesOpened = () => setLanguagesOpened(prev => !prev)
+  // const toggleLanguagesOpened = () => setLanguagesOpened(prev => !prev)
   const toggleMenuOpened = () => setMenuOpened(prev => !prev)
 
   const detailedOrderID = matchPath({ path: '/driver-order/:id' }, location.pathname)?.params.id
 
-  let time = ''
-  if (duration.hours() >= 10)
-    time = `${duration.hours()} ${t(TRANSLATION.HOUR, { toLower: true })}`
-  else if (duration.minutes() >= 10)
-    time = `${duration.minutes()} ${t(TRANSLATION.MINUTES, { toLower: true })}`
-  else
-    time = `${duration.seconds()} ${t(TRANSLATION.SECONDS, { toLower: true })}`
+  // let time = ''
+  // if (duration.hours() >= 10)
+  //   time = `${duration.hours()} ${t(TRANSLATION.HOUR, { toLower: true })}`
+  // else if (duration.minutes() >= 10)
+  //   time = `${duration.minutes()} ${t(TRANSLATION.MINUTES, { toLower: true })}`
+  // else
+  //   time = `${duration.seconds()} ${t(TRANSLATION.SECONDS, { toLower: true })}`
 
-  const isNotFirstAttempt = (clientOrder?.b_attempts?.length || 0) > 1
-  const heading = seconds > 0 ?
-    `№${selectedOrder} ${isNotFirstAttempt ? t(TRANSLATION.REPEATED) : ''} ${t(TRANSLATION.SEARCH, { toLower: isNotFirstAttempt })}: ${time}` :
-    location.pathname === '/driver-order' ?
-      `${t(TRANSLATION.ORDERS)}` :
-      detailedOrderID ?
-        `${t(TRANSLATION.ORDER)} №${detailedOrderID}` :
-        `${t(TRANSLATION.CREATE_ORDER)}`
+  // const isNotFirstAttempt = (clientOrder?.b_attempts?.length || 0) > 1
+  // const heading = seconds > 0 ?
+  //   `№${selectedOrder} ${
+  //     isNotFirstAttempt ? t(TRANSLATION.REPEATED) : ''
+  //   } ${
+  //     t(TRANSLATION.SEARCH, { toLower: isNotFirstAttempt })
+  //   }: ${time}` :
+  //   location.pathname === '/driver-order' ?
+  //     `${t(TRANSLATION.ORDERS)}` :
+  //     detailedOrderID ?
+  //       `${t(TRANSLATION.ORDER)} №${detailedOrderID}` :
+  //       `${t(TRANSLATION.CREATE_ORDER)}`
 
   // let avatar = images.avatar
   // let avatarSize = '30px'
@@ -165,10 +166,12 @@ const Header: React.FC<IProps> = ({
                   animationDuration={0.5}
                 /> */}
                   <Burger onClick={toggleMenuOpened} isOpen={menuOpened} />
-                  <ul className={cn('menu__list', { 
-                    'menu__list--active': menuOpened,
-                    'menu__list--expanded': languagesOpened 
-                  })}>
+                  <ul
+                    className={cn('menu__list', {
+                      'menu__list--active': menuOpened,
+                      'menu__list--expanded': languagesOpened,
+                    })}
+                  >
                     {menuItems.map((item, index) => (
                       <li key={index} className="menu__item">
                         <button
@@ -183,18 +186,23 @@ const Header: React.FC<IProps> = ({
                         </button>
                         {item.type === 'language' && languagesOpened && (
                           <div className="menu__languages">
-                            {SITE_CONSTANTS.LANGUAGES.filter(x => x.iso !== (config.SavedConfig !== 'children' ? ' ' : 'ru')).map((item: ILanguage) => (
-                              <img
-                                key={item.id}
-                                src={item.logo}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleLanguageChange(item);
-                                }}
-                                alt={item.native}
-                                className="menu__language-flag"
-                              />
-                            ))}
+                            {SITE_CONSTANTS.LANGUAGES
+                              .filter(x => x.iso !== (
+                                config.SavedConfig !== 'children' ? ' ' : 'ru'
+                              ))
+                              .map((item: ILanguage) => (
+                                <img
+                                  key={item.id}
+                                  src={item.logo}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleLanguageChange(item)
+                                  }}
+                                  alt={item.native}
+                                  className="menu__language-flag"
+                                />
+                              ))
+                            }
                           </div>
                         )}
                       </li>
@@ -209,7 +217,7 @@ const Header: React.FC<IProps> = ({
         </button>}
       </div>
       {/* <h2>{heading}</h2> */}
-      <div className='header-logo'><img src={images.logo} /></div>
+      <div className='header-logo'><img src={images.logo} alt="" /></div>
       {/* <div className="column">
                 <div
                     onClick={() => toggleLanguagesOpened()}
@@ -225,7 +233,10 @@ const Header: React.FC<IProps> = ({
 
                     <span
                         className="languages"
-                        style={{ background: SITE_CONSTANTS.PALETTE.primary.dark, display: languagesOpened ? 'flex' : 'none' }}
+                        style={{
+                          background: SITE_CONSTANTS.PALETTE.primary.dark,
+                          display: languagesOpened ? 'flex' : 'none',
+                        }}
                     >
                         {
                             SITE_CONSTANTS.LANGUAGES.map(item => (
