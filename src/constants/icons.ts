@@ -4,6 +4,11 @@ export const names = {
   alarm: 'alarm.svg',
   carNearby: 'car-nearby.svg',
   timeWait: 'time-wait.svg',
+  call: 'call.svg',
+  car: 'car.svg',
+  money: 'money.svg',
+  msg: 'msg.svg',
+  people: 'people.svg',
 }
 
 export default new Proxy(names, {

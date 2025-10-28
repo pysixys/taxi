@@ -1,10 +1,11 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { connect, ConnectedProps } from 'react-redux'
-import { formatCurrency } from '../../tools/utils'
+import cn from 'classnames'
+import { getPhoneNumberError, formatCurrency } from '../../tools/utils'
 import { IRootState } from '../../state'
 import { clientOrderSelectors } from '../../state/clientOrder'
 import { t, TRANSLATION } from '../../localization'
-import images from '../../constants/images'
+import Icon from '../Icon'
 import './styles.scss'
 
 const mapStateToProps = (state: IRootState) => ({
@@ -12,38 +13,54 @@ const mapStateToProps = (state: IRootState) => ({
   seats: clientOrderSelectors.seats(state),
   carClass: clientOrderSelectors.carClass(state),
   customerPrice: clientOrderSelectors.customerPrice(state),
+  phone: clientOrderSelectors.phone(state),
 })
 
 const connector = connect(mapStateToProps)
 
 interface IProps extends ConnectedProps<typeof connector> {}
 
-function ShortInfo({ time, seats, carClass, customerPrice }: IProps) {
-  const items = [
-    // { name: images.carNearbyIcon, value: '7 / 5 min' },
+function ShortInfo({ time, seats, carClass, customerPrice, phone }: IProps) {
+  const items: {
+    name: React.ComponentProps<typeof Icon>['src']
+    value: string | null
+    active?: boolean
+  }[] = [
+    // { name: 'carNearby', value: '7 / 5 min' },
     {
-      name: images.alarmIcon,
+      name: 'alarm',
       value: time === 'now' ? t(TRANSLATION.NOW) : time.format('HH:mm'),
     },
-    { name: images.peopleIcon, value: seats },
-    { name: images.carIcon, value: t(TRANSLATION.CAR_CLASSES[carClass]) },
+    { name: 'people', value: `${seats}` },
+    { name: 'car', value: t(TRANSLATION.CAR_CLASSES[carClass]) },
     {
-      name: images.moneyIcon,
+      name: 'money',
       value: customerPrice !== null ? formatCurrency(customerPrice) : null,
     },
-    { name: images.callIcon, value: '' },
-    { name: images.msgIcon, value: '' },
+    {
+      name: 'call',
+      value: '',
+      active: useMemo(() =>
+        getPhoneNumberError(phone) === null
+      , [phone]),
+    },
+    { name: 'msg', value: '' },
   ]
 
   return (
     <div className='short-info'>
-      {items.map((item, idx) => item.value !== null &&
-        <React.Fragment key={item.name}>
-          <div className="short-info__item" >
-            <img src={item.name} alt="" />
-            <span className="short-info__text">{item.value}</span>
+      {items.map(({ name, value, active = true }, index) => value !== null &&
+        <React.Fragment key={name}>
+          <div
+            className={cn(
+              'short-info__item',
+              { 'short-info__item--active': active },
+            )}
+          >
+            <Icon className="short-info__icon" src={name} />
+            <span className="short-info__text">{value}</span>
           </div>
-          {idx < items.length - 1 && <div className="short-info__line" />}
+          {index < items.length - 1 && <div className="short-info__line" />}
         </React.Fragment>,
       )}
     </div>

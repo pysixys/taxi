@@ -328,7 +328,10 @@ export function getPhoneError(phone?: string | null, required = true) {
   return null
 }
 
-export function getPhoneNumberError(phone: number | null, required = true) {
+export function getPhoneNumberError(
+  phone: number | null,
+  required = true,
+): string | null {
   if (
     phone === null ||
     phone < 10 ** (getEmptyPhoneValue().match(/\d/g)?.length ?? 0)
@@ -336,6 +339,7 @@ export function getPhoneNumberError(phone: number | null, required = true) {
     return required ? t(TRANSLATION.REQUIRED_FIELD) : null
   if (phone < 10 ** (minPhoneLength - 1) || phone >= 10 ** maxPhoneLength)
     return t(TRANSLATION.PHONE_PATTERN_ERROR)
+  return null
 }
 
 export const getPointError = (point?: IAddressPoint | null) => {
