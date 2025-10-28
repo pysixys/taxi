@@ -1,5 +1,5 @@
 import React, {
-  useState, useRef, useLayoutEffect, useEffect,
+  useState, useRef, useLayoutEffect,
   useMemo, useCallback, useImperativeHandle,
 } from 'react'
 import { connect, ConnectedProps, useStore } from 'react-redux'
@@ -100,10 +100,6 @@ const VotingForm = function VotingForm({
   useLayoutEffect(() => { setToError(null) }, [to])
   const [phoneError, setPhoneError] = useState<string | null>(null)
   useLayoutEffect(() => { setPhoneError(null) }, [phone])
-  useEffect(() => {
-    if (phoneError)
-      setIsExpanded(true)
-  }, [phoneError])
 
   const store = useStore<IRootState>()
   const submit = useCallback(async(voting = false) => {
@@ -125,6 +121,7 @@ const VotingForm = function VotingForm({
     const phoneError = getPhoneNumberError(phone)
     if (phoneError) {
       setPhoneError(phoneError)
+      setIsExpanded(true)
       error = true
     }
     if (error)
@@ -184,7 +181,7 @@ const VotingForm = function VotingForm({
   }, [
     from, to, comments, time, phone, user,
     store, setLoginModal, getActiveOrders,
-    onSubmit,
+    setIsExpanded, onSubmit,
   ])
 
   const [submitting, setSubmitting] = useState(false)
