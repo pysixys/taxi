@@ -203,20 +203,26 @@ $red: #FF2400;
     }
 
     &__language-flag {
-      box-sizing: content-box;
-      height: 16px;
+      display: flex;
+      align-items: center;
       padding: 3px 5px;
-      object-fit: contain;
-      object-position: left;
       cursor: pointer;
 
       &:hover {
         opacity: 0.8;
       }
+    }
 
-      &--text {
-        width: auto;
-        height: auto;
+    &__language-flag-icon {
+      width: 24px;
+      height: 16px;
+    }
+
+    &__language-flag-text {
+      margin-left: 5px;
+
+      &:only-child {
+        margin-left: 29px;
       }
     }
   }
