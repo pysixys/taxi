@@ -62,7 +62,6 @@ function Map({
         center={defaultCenter || SITE_CONSTANTS.DEFAULT_POSITION}
         zoom={defaultZoom}
         className='map'
-        // crs={SITE_CONSTANTS.MAP_MODE === MAP_MODE.YANDEX ? L.CRS.EPSG3395 : L.CRS.EPSG3857}
         attributionControl={false}
       >
         <MapContent

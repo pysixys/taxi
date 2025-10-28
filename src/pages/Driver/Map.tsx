@@ -58,7 +58,7 @@ interface IContentProps extends IProps {
 
 const cachedDriverMapStateKey = 'cachedDriverMapState'
 
-const DriverOrderMapMode: React.FC<IProps & ConnectedProps<typeof connector>> = props => {
+function DriverOrderMapMode(props: IProps & ConnectedProps<typeof connector>) {
   const [position, setPosition] = useCachedState<L.LatLngExpression | undefined>(
     `${cachedDriverMapStateKey}.position`,
   )
@@ -73,7 +73,7 @@ const DriverOrderMapMode: React.FC<IProps & ConnectedProps<typeof connector>> = 
         center={position ?? SITE_CONSTANTS.DEFAULT_POSITION}
         zoom={zoom}
         className='map'
-        // crs={SITE_CONSTANTS.MAP_MODE === MAP_MODE.YANDEX ? L.CRS.EPSG3395 : L.CRS.EPSG3857}
+        attributionControl={false}
       >
         <DriverOrderMapModeContent
           locate={!position}
@@ -85,7 +85,7 @@ const DriverOrderMapMode: React.FC<IProps & ConnectedProps<typeof connector>> = 
   )
 }
 
-const DriverOrderMapModeContent: React.FC<IContentProps> = ({
+function DriverOrderMapModeContent({
   user,
   activeOrders,
   readyOrders,
@@ -95,7 +95,7 @@ const DriverOrderMapModeContent: React.FC<IContentProps> = ({
   setRatingModal,
   setMessageModal,
   getOrder,
-}) => {
+}: IContentProps) {
 
   const [choosedOrder, setChoosedOrder] = useState<IOrder|null>(null)
 
