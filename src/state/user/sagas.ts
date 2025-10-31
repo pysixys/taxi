@@ -1,9 +1,5 @@
 import { ActionTypes as ConfigActionTypes } from './../config/constants'
-import { Channel } from 'redux-saga'
-import {
-  all, fork, take, takeEvery,
-  put, actionChannel,
-} from 'redux-saga/effects'
+import { all, takeEvery, put } from 'redux-saga/effects'
 import { setLoginModal, setMessageModal, setRefCodeModal } from '../modals/actionCreators'
 import { ActionTypes } from './constants'
 import { uploadRegisterFiles, uploadFiles } from './helpers'
@@ -26,26 +22,6 @@ export const saga = function* () {
     takeEvery(ActionTypes.REMIND_PASSWORD_REQUEST, remindPasswordSaga),
     takeEvery(ActionTypes.INIT_USER, initUserSaga),
     takeEvery(ActionTypes.WHATSAPP_SIGNUP_REQUEST, whatsappSignUpSaga),
-    call(function*() {
-
-      while (true) {
-        const requestChannel: Channel<TAction> =
-          yield actionChannel(ActionTypes.GET_CAR_REQUEST)
-        while (true) {
-          yield take(requestChannel)
-          yield fork(getCarSaga)
-          const result: TAction = yield take([
-            ActionTypes.GET_CAR_SUCCESS,
-            ActionTypes.GET_CAR_FAIL,
-          ])
-          if (result.type === ActionTypes.GET_CAR_SUCCESS)
-            break
-        }
-        requestChannel.close()
-        yield take(ActionTypes.SET_USER)
-      }
-
-    }),
   ])
 }
 
@@ -277,15 +253,5 @@ function* whatsappSignUpSaga(data: TAction) {
   } catch (error) {
     console.error(error)
     yield put({ type: ActionTypes.WHATSAPP_SIGNUP_FAIL })
-  }
-}
-
-function* getCarSaga() {
-  try {
-    const cars = yield* call(API.getUserCars)
-    yield put({ type: ActionTypes.GET_CAR_SUCCESS, payload: cars[0] })
-  } catch (error) {
-    console.error(error)
-    yield put({ type: ActionTypes.GET_CAR_FAIL, payload: error })
   }
 }

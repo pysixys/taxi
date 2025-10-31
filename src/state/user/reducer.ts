@@ -12,7 +12,6 @@ export const record = Record<IUserState>({
   tab: LOGIN_TABS_IDS[0],
   response: null,
   whatsappSignUpData: { u_phone: '' },
-  car: undefined,
 })
 
 export default function reducer(state = new record(), action: TAction) {
@@ -115,7 +114,6 @@ export default function reducer(state = new record(), action: TAction) {
         .set('user', payload)
         .set('tab', payload ? LOGIN_TABS_IDS[0] : LOGIN_TABS_IDS[1])
 
-
     case ActionTypes.WHATSAPP_SIGNUP_START:
       return state
         .set('status', EStatuses.Loading)
@@ -132,10 +130,6 @@ export default function reducer(state = new record(), action: TAction) {
         .set('status', EStatuses.Fail)
         .set('whatsappSignUpData', null)
         //  .set('message', payload && payload.message || TRANSLATION.REGISTER_FAIL)?
-
-    case ActionTypes.GET_CAR_SUCCESS:
-      return state
-        .set('car', payload)
 
     default:
       return state

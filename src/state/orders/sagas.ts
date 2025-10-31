@@ -8,8 +8,8 @@ import { select, call, concurrency } from '../../tools/sagaUtils'
 import { updateCompletedOrderDuration } from '../../tools/order'
 import * as API from '../../API'
 import { IRootState } from '..'
-import { getCar } from '../user/actionCreators'
 import { user } from '../user/selectors'
+import { getUserCars } from '../cars/actionCreators'
 import { setSelectedOrder } from '../clientOrder/actionCreators'
 import { getAreasBetweenPoints } from '../areas/actionCreators'
 import { ActionTypes } from './constants'
@@ -242,7 +242,7 @@ function* getOrdersTakerGeolocationSaga(
         .filter(([lat, lng]) => lat && lng) as [number, number][],
       geolocation,
     ]))
-    yield put(getCar())
+    yield put(getUserCars())
 
     return geolocation
   }

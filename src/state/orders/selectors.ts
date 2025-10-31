@@ -3,8 +3,8 @@ import { IOrder, ICar } from '../../types/types'
 import { estimateOrder } from '../../tools/order'
 import { IWayGraph } from '../../tools/maps'
 import { IRootState } from '../'
+import { userPrimaryCar } from '../cars/selectors'
 import { wayGraph } from '../areas/selectors'
-import { car } from '../user/selectors'
 import { moduleName } from './constants'
 
 export const moduleSelector = (state: IRootState) => state[moduleName]
@@ -56,22 +56,22 @@ const estimatedOrder = createSelector(
 const estimatedOrders = (
   orders: IOrder[] | null,
   geolocation: [number, number] | undefined,
-  car: ICar | undefined,
+  car: ICar | null | undefined,
   graph: IWayGraph,
 ): IOrder[] | null =>
   orders && geolocation && car ?
     orders.map(order => estimatedOrder(order, geolocation, car, graph)) :
     orders
 export const activeOrders = createSelector(
-  [pureActiveOrders, activeOrdersTakerGeolocation, car, wayGraph],
+  [pureActiveOrders, activeOrdersTakerGeolocation, userPrimaryCar, wayGraph],
   estimatedOrders,
 )
 export const readyOrders = createSelector(
-  [pureReadyOrders, readyOrdersTakerGeolocation, car, wayGraph],
+  [pureReadyOrders, readyOrdersTakerGeolocation, userPrimaryCar, wayGraph],
   estimatedOrders,
 )
 export const historyOrders = createSelector(
-  [pureHistoryOrders, historyOrdersTakerGeolocation, car, wayGraph],
+  [pureHistoryOrders, historyOrdersTakerGeolocation, userPrimaryCar, wayGraph],
   estimatedOrders,
 )
 

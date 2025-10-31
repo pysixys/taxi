@@ -52,10 +52,6 @@ export const ActionTypes = {
   WHATSAPP_SIGNUP_START: `${prefix}/WHATSAPP_SIGNUP_START`,
   WHATSAPP_SIGNUP_FAIL: `${prefix}/WHATSAPP_SIGNUP_FAIL`,
   WHATSAPP_SIGNUP_REQUEST: `${prefix}/WHATSAPP_SIGNUP_REQUEST`,
-
-  GET_CAR_REQUEST: `${prefix}/GET_CAR_REQUEST`,
-  GET_CAR_SUCCESS: `${prefix}/GET_CAR_SUCCESS`,
-  GET_CAR_FAIL: `${prefix}/GET_CAR_FAIL`,
 } as const
 
 export enum ERegistrationType {
@@ -80,5 +76,4 @@ export interface IUserState {
   tab: TLoginTab,
   response: IRegisterResponse | null,
   whatsappSignUpData?:{u_phone: string}|null,
-  car?: ICar,
 }

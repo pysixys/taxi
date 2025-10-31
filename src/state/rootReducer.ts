@@ -2,6 +2,8 @@ import { combineReducers } from 'redux'
 
 import { moduleName as userModule } from './user/constants'
 import userReducer from './user/reducer'
+import { moduleName as carsModule } from './cars/constants'
+import carsReducer from './cars/reducer'
 import { moduleName as ordersModule } from './orders/constants'
 import ordersReducer from './orders/reducer'
 import { moduleName as orderModule } from './order/constants'
@@ -19,6 +21,7 @@ import areasReducer from './areas/reducer'
 
 const rootReducer = combineReducers({
   [userModule]: userReducer,
+  [carsModule]: carsReducer,
   [ordersModule]: ordersReducer,
   [ordersDetailsModule]: ordersDetailsReducer,
   [orderModule]: orderReducer,
