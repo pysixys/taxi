@@ -10,6 +10,7 @@ const OrderRecord = ImmutableRecord<IOrderState>({
   partial: null,
   listeners: 0,
   mutations: 0,
+  stale: false,
 })
 
 const defaultRecord: IOrdersState = {
@@ -38,6 +39,10 @@ export default function(
             .update(
               type === ActionTypes.START_MUTATION ? 'mutations' : 'listeners',
               value => value + 1,
+            )
+            .set(
+              'stale',
+              type === ActionTypes.START_MUTATION ? true : value.stale,
             ),
           ),
         )
@@ -59,15 +64,15 @@ export default function(
     }
 
     case ActionTypes.GET_ORDER_SUCCESS: {
-      const orderData = state.orders.get(payload.b_id)
-      return orderData && !_.isEqual(payload, orderData.value) ?
-        state
-          .set('orders', state.orders
-            .set(payload.b_id, orderData
-              .set('value', payload),
-            ),
-          ) :
-        state
+      return state
+        .set('orders', state.orders
+          .update(payload.b_id, value => value
+            ?.update('value', value =>
+              _.isEqual(payload, value) ? value : payload,
+            )
+            ?.set('stale', false),
+          ),
+        )
     }
 
     case ActionTypes.GET_ACTIVE_ORDERS_SUCCESS:

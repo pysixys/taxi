@@ -13,10 +13,10 @@ import { getUserCars } from '../cars/actionCreators'
 import { setSelectedOrder } from '../clientOrder/actionCreators'
 import { getAreasBetweenPoints } from '../areas/actionCreators'
 import { ActionTypes } from './constants'
+import { getOrder } from './actionCreators'
 import {
   moduleSelector,
   activeOrders, readyOrders, historyOrders,
-  orderMutates,
 } from './selectors'
 
 export const saga = function* () {
@@ -140,8 +140,9 @@ function* getOrdersGroupSaga({ type, payload: { estimate } }: TAction) {
 }
 
 function* getOrderByIdSaga({ payload }: TAction) {
-  if (!(yield* select(orderMutates, payload)))
-    yield* getOrderSaga(payload)
+  if (yield* select((state: IRootState) =>
+    !moduleSelector(state).orders.get(payload)?.mutations,
+  )) yield* getOrderSaga(payload)
 }
 
 function* getOrdersSaga(
@@ -173,7 +174,7 @@ function* afterOrdersChangeSaga(prev: IOrder[], current: IOrder[]) {
     yield* select((state: IRootState) => moduleSelector(state).orders)
   for (const order of diff)
     if (existing.has(order.b_id))
-      yield* getOrderSaga(order.b_id)
+      yield put(getOrder(order.b_id))
 }
 
 function* cancelOrdersOnNextExpireSaga(orders: IOrder[]) {

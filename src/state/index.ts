@@ -17,8 +17,8 @@ const configureStore = () => {
   const store = createStore(
     rootReducer,
     composeEnhancers(
-      applyMiddleware(sagaMiddleware),
       applyMiddleware(thunk),
+      applyMiddleware(sagaMiddleware),
     ),
   )
 

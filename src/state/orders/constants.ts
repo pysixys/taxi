@@ -47,6 +47,7 @@ export interface IOrderState {
   partial: IOrder | null
   listeners: number
   mutations: number
+  stale: boolean
 }
 
 export interface IOrdersState {

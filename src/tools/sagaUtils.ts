@@ -43,6 +43,7 @@ interface IConcurrentSaga<TAction> {
 export function* concurrency<TAction>(...sagas: IConcurrentSaga<TAction>[]) {
   const running = new Map<Task, QueueItem>()
   const queue: QueueItem[] = []
+  const takeEffects = sagas.map(({ action }) => take(action))
   const tasksExecutionChannel = yield* call(channel)
 
   interface QueueItem {
@@ -50,13 +51,12 @@ export function* concurrency<TAction>(...sagas: IConcurrentSaga<TAction>[]) {
     action: TAction
     parallelKey: unknown
     sequenceKey: unknown
-    latestKey?: unknown
-    leadingKey?: unknown
+    uniqueKey?: unknown
   }
 
   while (true) {
     const [actions = []]: [TAction[]] = yield race([
-      race(sagas.map(({ action }) => take(action))),
+      race(takeEffects),
       take(tasksExecutionChannel),
     ])
 
@@ -82,12 +82,10 @@ export function* concurrency<TAction>(...sagas: IConcurrentSaga<TAction>[]) {
             `and leading key (${leadingKey})`,
           )
 
-        if (latestKey !== undefined || leading !== undefined) {
+        if (latestKey !== undefined || leadingKey !== undefined) {
+          const uniqueKey = latestKey !== undefined ? latestKey : leadingKey
           const searchFn = (item: QueueItem) =>
-            item.sagaIndex === sagaIndex && (latestKey !== undefined ?
-              item.latestKey === latestKey :
-              item.leadingKey === leadingKey
-            )
+            item.sagaIndex === sagaIndex && item.uniqueKey === uniqueKey
           const runningTask = [...running]
             .find(([, item]) => searchFn(item))?.[0]
           const queueIndex = queue.findIndex(searchFn)
@@ -97,11 +95,11 @@ export function* concurrency<TAction>(...sagas: IConcurrentSaga<TAction>[]) {
               queue.splice(queueIndex, 1)
             if (runningTask)
               yield cancel(runningTask)
-            queue.push({ ...queueItem, latestKey })
+            queue.push({ ...queueItem, uniqueKey })
           }
 
           if (leadingKey !== undefined && (!runningTask && queueIndex === -1))
-            queue.push({ ...queueItem, leadingKey })
+            queue.push({ ...queueItem, uniqueKey })
         }
 
         else

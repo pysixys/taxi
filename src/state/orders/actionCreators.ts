@@ -1,5 +1,7 @@
 import { TAction } from '../../types'
 import { IOrder } from '../../types/types'
+import * as API from '../../API'
+import { IDispatch } from '..'
 import { ActionTypes } from './constants'
 
 export const getActiveOrders = (payload: GetOrdersParams = {}): TAction =>
@@ -18,11 +20,32 @@ export const getOrder = (payload: IOrder['b_id']): TAction =>
   ({ type: ActionTypes.GET_ORDER_REQUEST, payload })
 export const unwatchOrder = (payload: IOrder['b_id']): TAction =>
   ({ type: ActionTypes.UNWATCH_ORDER, payload })
-export const startMutation = (payload: IOrder['b_id']): TAction =>
-  ({ type: ActionTypes.START_MUTATION, payload })
-export const endMutation = (payload: IOrder['b_id']): TAction =>
-  ({ type: ActionTypes.END_MUTATION, payload })
 
-export const clearOrders = (): TAction => {
-  return { type: ActionTypes.CLEAR }
-}
+export const clearOrders = (): TAction => ({ type: ActionTypes.CLEAR })
+
+export const take = (
+  id: IOrder['b_id'],
+  ...params: Parameters<
+    typeof API.takeOrder
+  > extends [any, ...infer Rest] ? Rest : never
+) => mutationThunk(() => API.takeOrder(id, ...params), id)
+export const setState = (
+  id: IOrder['b_id'],
+  ...params: Parameters<
+    typeof API.setOrderState
+  > extends [any, ...infer Rest] ? Rest : never
+) => mutationThunk(() => API.setOrderState(id, ...params), id)
+
+const mutationThunk = <TReturn>(
+  mutation: () => Promise<TReturn>,
+  id: IOrder['b_id'],
+) => async(
+    dispatch: IDispatch,
+  ): Promise<TReturn> => {
+    dispatch({ type: ActionTypes.START_MUTATION, payload: id })
+    try {
+      return await mutation()
+    } finally {
+      dispatch({ type: ActionTypes.END_MUTATION, payload: id })
+    }
+  }

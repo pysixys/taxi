@@ -91,5 +91,7 @@ export function order(
   return orderData?.value ?? orderData?.partial ?? undefined
 }
 
-export const orderMutates = (state: IRootState, id: IOrder['b_id']) =>
-  (ordersData(state).get(id)?.mutations as number) > 0
+export const orderMutates = (state: IRootState, id: IOrder['b_id']) => {
+  const orderData = ordersData(state).get(id)
+  return !!(orderData?.mutations || orderData?.stale)
+}

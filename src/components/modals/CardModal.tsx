@@ -25,7 +25,6 @@ import {
   formatCurrency,
 } from '../../tools/utils'
 import { useCachedState, useSelector } from '../../tools/hooks'
-import * as API from '../../API'
 import { t, TRANSLATION } from '../../localization'
 import { IRootState } from '../../state'
 import { modalsActionCreators, modalsSelectors } from '../../state/modals'
@@ -60,8 +59,8 @@ const mapStateToProps = (state: IRootState) => ({
 const mapDispatchToProps = {
   watchOrder: ordersActionCreators.watchOrder,
   unwatchOrder: ordersActionCreators.unwatchOrder,
-  startOrderMutation: ordersActionCreators.startMutation,
-  endOrderMutation: ordersActionCreators.endMutation,
+  takeOrder: ordersActionCreators.take,
+  setOrderState: ordersActionCreators.setState,
   getOrderStart: ordersDetailsActionCreators.getOrderStart,
   getOrderDestination: ordersDetailsActionCreators.getOrderDestination,
   setSelectedOrderId: orderActionCreators.setSelectedOrderId,
@@ -99,8 +98,8 @@ function CardModal({
   activeChat,
   watchOrder,
   unwatchOrder,
-  startOrderMutation,
-  endOrderMutation,
+  takeOrder,
+  setOrderState,
   getOrderStart,
   getOrderDestination,
   setSelectedOrderId,
@@ -170,11 +169,11 @@ function CardModal({
   }, [active, orderId])
 
   const handleSubmit = () => orderMutation(async() => {
-    await API.takeOrder(orderId, { ...getValues() })
+    await takeOrder(orderId, { ...getValues() })
   })
 
   const onArrivedClick = () => orderMutation(async() => {
-    await API.setOrderState(orderId, EBookingDriverState.Arrived)
+    await setOrderState(orderId, EBookingDriverState.Arrived)
   })
 
   const onHideOrder = () => {
@@ -182,18 +181,17 @@ function CardModal({
   }
 
   const onStartedClick = () => orderMutation(async() => {
-    await API.setOrderState(orderId, EBookingDriverState.Started)
+    await setOrderState(orderId, EBookingDriverState.Started)
     navigate('/driver-order?tab=map')
   })
 
   const onCompleteOrderClick = () => orderMutation(async() => {
-    await API.setOrderState(orderId, EBookingDriverState.Finished)
+    await setOrderState(orderId, EBookingDriverState.Finished)
     navigate(`/driver-order?tab=${EDriverTabs.Lite}`)
     setRatingModal({ isOpen: true })
   })
 
-  async function orderMutation(mutation: () => void) {
-    startOrderMutation(orderId)
+  async function orderMutation(mutation: () => Promise<void>) {
     try {
       await mutation()
     } catch (error) {
@@ -203,8 +201,6 @@ function CardModal({
         message: (error as any) || t(TRANSLATION.ERROR),
         status: EStatuses.Fail,
       })
-    } finally {
-      endOrderMutation(orderId)
     }
   }
 
