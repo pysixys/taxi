@@ -58,7 +58,6 @@ const mapStateToProps = (state: IRootState) => ({
 
 const mapDispatchToProps = {
   watchOrder: ordersActionCreators.watchOrder,
-  unwatchOrder: ordersActionCreators.unwatchOrder,
   takeOrder: ordersActionCreators.take,
   setOrderState: ordersActionCreators.setState,
   getOrderStart: ordersDetailsActionCreators.getOrderStart,
@@ -97,7 +96,6 @@ function CardModal({
   closeModal,
   activeChat,
   watchOrder,
-  unwatchOrder,
   takeOrder,
   setOrderState,
   getOrderStart,
@@ -111,12 +109,7 @@ function CardModal({
   setActiveChat,
 }: IProps) {
 
-  useEffect(() => {
-    watchOrder(orderId)
-    return () => {
-      unwatchOrder(orderId)
-    }
-  }, [orderId])
+  useEffect(() => watchOrder(orderId), [orderId])
   const order = useSelector(ordersSelectors.order, orderId) ?? null
   const orderMutates = useSelector(ordersSelectors.orderMutates, orderId)
 

@@ -14,12 +14,14 @@ export interface GetOrdersParams {
   estimate?: boolean
 }
 
-export const watchOrder = (payload: IOrder['b_id']): TAction =>
-  ({ type: ActionTypes.WATCH_ORDER, payload })
-export const getOrder = (payload: IOrder['b_id']): TAction =>
-  ({ type: ActionTypes.GET_ORDER_REQUEST, payload })
-export const unwatchOrder = (payload: IOrder['b_id']): TAction =>
-  ({ type: ActionTypes.UNWATCH_ORDER, payload })
+export const watchOrder = (
+  payload: IOrder['b_id'],
+) => (dispatch: IDispatch) => {
+  dispatch({ type: ActionTypes.WATCH_ORDER, payload })
+  return () => {
+    dispatch({ type: ActionTypes.UNWATCH_ORDER, payload })
+  }
+}
 
 export const clearOrders = (): TAction => ({ type: ActionTypes.CLEAR })
 

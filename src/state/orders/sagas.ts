@@ -13,7 +13,6 @@ import { getUserCars } from '../cars/actionCreators'
 import { setSelectedOrder } from '../clientOrder/actionCreators'
 import { getAreasBetweenPoints } from '../areas/actionCreators'
 import { ActionTypes } from './constants'
-import { getOrder } from './actionCreators'
 import {
   moduleSelector,
   activeOrders, readyOrders, historyOrders,
@@ -174,7 +173,7 @@ function* afterOrdersChangeSaga(prev: IOrder[], current: IOrder[]) {
     yield* select((state: IRootState) => moduleSelector(state).orders)
   for (const order of diff)
     if (existing.has(order.b_id))
-      yield put(getOrder(order.b_id))
+      yield put({ type: ActionTypes.GET_ORDER_REQUEST, payload: order.b_id })
 }
 
 function* cancelOrdersOnNextExpireSaga(orders: IOrder[]) {
