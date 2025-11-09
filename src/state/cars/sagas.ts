@@ -26,7 +26,7 @@ export function* saga() {
 }
 
 interface LoadState {
-  lastUser?: IUser
+  lastUserId?: IUser['u_id']
 }
 
 function* getCarSaga({ type, payload }: TAction) {
@@ -45,13 +45,13 @@ function* getCarSaga({ type, payload }: TAction) {
 }
 
 function* getUserCarsSaga(_: TAction, loadState: LoadState) {
-  const user = yield* select(userSelector)
-  if (!user || user === loadState.lastUser)
+  const userId = (yield* select(userSelector))?.u_id
+  if (!userId || userId === loadState.lastUserId)
     return
   try {
     const cars = yield* call(API.getUserCars)
     yield put({ type: ActionTypes.GET_USER_CARS_SUCCESS, payload: cars })
-    loadState.lastUser = user
+    loadState.lastUserId = userId
   } catch (error) {
     console.error(error)
     yield put({ type: ActionTypes.GET_USER_CARS_FAIL, payload: error })

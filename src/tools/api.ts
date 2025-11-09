@@ -13,7 +13,7 @@ interface apiMethodOptions {
 }
 
 export const apiMethod = <T extends (...args: any[]) => any>(
-  method: (...args: Parameters<T>) => ReturnType<T>,
+  method: T,
   {
     authRequired = true,
   }: apiMethodOptions = {},

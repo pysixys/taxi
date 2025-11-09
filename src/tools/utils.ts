@@ -18,6 +18,45 @@ export function firstItem<T>(value: Iterable<T>): T | undefined {
     return item
 }
 
+export function makeFlat(
+  obj: Record<string, unknown>,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'object' && value && !(value instanceof Array)) {
+      const nestedObj = makeFlat(value as Record<string, unknown>)
+      for (const [nestedKey, nestedValue] of Object.entries(nestedObj))
+        result[`${key}.${nestedKey}`] = nestedValue
+    } else if (!(key in result))
+      result[key] = value
+  }
+  return result
+}
+
+export function makeNested(
+  obj: Record<string, unknown>,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(obj)) {
+    const path = key.split('.')
+    let nestedObj = result
+    for (const [index, nestedKey] of path.entries()) {
+      if (index === path.length - 1)
+        nestedObj[nestedKey] = value
+      else if (
+        !nestedObj[nestedKey] ||
+        typeof nestedObj[nestedKey] !== 'object'
+      ) nestedObj[nestedKey] = {}
+      nestedObj = nestedObj[nestedKey] as Record<string, unknown>
+    }
+  }
+  return result
+}
+
+export function deepGet(obj: unknown, path: string): unknown {
+  return path.split('.').reduce((res, key) => (res as any)?.[key], obj)
+}
+
 export function cloneFormData(formData: FormData) {
   const result = new FormData()
   for (const [key, value] of formData)

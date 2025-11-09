@@ -1,12 +1,13 @@
-import React, { useLayoutEffect, useMemo } from 'react'
-import { IRootState } from '../../../state'
-import { userSelectors, userActionCreators } from '../../../state/user'
+import React, { useMemo } from 'react'
 import { connect, ConnectedProps } from 'react-redux'
 import { EStatuses, EUserRoles } from '../../../types/types'
-import ErrorFrame from '../../../components/ErrorFrame'
-import JSONForm from '../../JSONForm'
 import { normalizePhoneNumber } from '../../../tools/phoneUtils'
+import { IRootState } from '../../../state'
+import { userSelectors, userActionCreators } from '../../../state/user'
 import { t, TRANSLATION } from '../../../localization'
+import JSONForm from '../../JSONForm'
+import { TForm } from '../../JSONForm/types'
+import ErrorFrame from '../../ErrorFrame'
 
 const mapStateToProps = (state: IRootState) => {
   return {
@@ -37,13 +38,10 @@ function RegisterForm({
 }: IProps) {
 
   const handleSubmit = (values: any) => {
-    console.log('Phone number from form:', values.u_phone)
     const isDriver = values.u_role === EUserRoles.Driver
-    console.log('Is driver:', isDriver)
 
     if (isDriver) {
       const normalizedPhone = normalizePhoneNumber(values.u_phone, true, true)
-      console.log('Normalized phone number:', normalizedPhone)
       values.u_phone = normalizedPhone
     }
 
@@ -51,29 +49,39 @@ function RegisterForm({
     register(values)
   }
 
-  const form = useMemo(() => {
+  let fields = useMemo(() => {
     try {
       const formStr = (window as any).data?.site_constants?.form_register?.value
-      return JSON.parse(formStr)
+      return (JSON.parse(formStr).fields as TForm) ?? null
     } catch {
       return null
     }
   }, [])
 
-  useLayoutEffect(() => {
-    if (form !== null && message !== undefined && message !== 'register_fail') {
-      for (const field of form.fields)
-        if (field.component === 'alert' && status === EStatuses.Fail)
-          field.props.message = t(TRANSLATION.REGISTER_FAIL) + ': ' + message
-    }
-  }, [message])
+  fields = useMemo(() =>
+    fields &&
+    message !== undefined &&
+    message !== 'register_fail' &&
+    status === EStatuses.Fail ?
+      fields.map(field => field.component === 'alert' ?
+        {
+          ...field,
+          props: {
+            ...(field.props ?? {}),
+            message: t(TRANSLATION.REGISTER_FAIL) + ': ' + message,
+          },
+        } :
+        field,
+      ) :
+      fields
+  , [message, status])
 
-  if (form === null)
+  if (fields === null)
     return <ErrorFrame title='Bad json in data.js' />
 
   return (
     <JSONForm
-      fields={form.fields}
+      fields={fields}
       onSubmit={handleSubmit}
       state={{
         success: status === EStatuses.Success,

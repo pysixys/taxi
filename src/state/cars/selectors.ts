@@ -13,12 +13,12 @@ const cars = (state: IRootState) => moduleSelector(state).cars
 const userCarsIds = (state: IRootState) => moduleSelector(state).userCars
 export const userCars = createSelector(
   [cars, userCarsIds],
-  (cars, ids) => ids?.map(id => cars.get(id)),
+  (cars, ids) => ids?.map(id => cars.get(id)).filter(Boolean),
   { memoizeOptions: {
     resultEqualityCheck: (oldValue, newValue) => is(newValue, oldValue),
   } },
 )
 export const userPrimaryCar = (state: IRootState) => {
   const id = userCarsIds(state)?.get(0, null)
-  return id == null ? id : cars(state).get(id)!.value!
+  return id == null ? id : cars(state).get(id)?.value
 }

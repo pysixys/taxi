@@ -11,13 +11,9 @@ import {
   IRouteInfo,
   ISuggestion,
   ITrip,
-  IUser,
 } from '../types/types'
 import { getBase64, getHints } from '../tools/utils'
-import {
-  convertTrip, reverseConvertTrip,
-  convertUser, reverseConvertUser,
-} from '../tools/convert'
+import { convertTrip, reverseConvertTrip } from '../tools/convert'
 import {
   addToFormData, apiMethod, IApiMethodArguments, IResponseFields,
 } from '../tools/api'
@@ -33,12 +29,22 @@ import { getCacheVersion } from './cacheVersion'
 export { getCacheVersion, EBookingActions }
 export {
   register,
+  remindPassword,
   login,
   whatsappSignUp,
   googleLogin,
   logout,
 } from './auth'
 export {
+  getUser,
+  getUsers,
+  getAuthorizedUser,
+  editUser,
+  editUserAfterRegister,
+} from './user'
+export {
+  createCar,
+  createUserCar,
   editCar,
   getUserCars,
   getUserCar,
@@ -167,56 +173,6 @@ const _getWashTrips = (
 }
 export const getWashTrips = apiMethod<typeof _getWashTrips>(_getWashTrips, { authRequired: false })
 
-const _getUser = (
-  { formData }: IApiMethodArguments,
-  id: IUser['u_id'],
-): Promise<IUser | null> => {
-  return axios.post(`${Config.API_URL}/user/${id}`, formData)
-    .then(res => res.data.data)
-    .then(res => convertUser(res.user[id]) || null)
-}
-export const getUser = apiMethod<typeof _getUser>(_getUser)
-
-const _getUsers = (
-  { formData }: IApiMethodArguments,
-  ids: IUser['u_id'][],
-): Promise<IUser[]> => {
-  return axios.post(`${Config.API_URL}/user/${ids.join(',')}`, formData)
-    .then(res => res.data.data)
-    .then(res => Object.values(res.user).map(i => convertUser(i)))
-}
-export const getUsers = apiMethod<typeof _getUsers>(_getUsers)
-
-const _getAuthorizedUser = (
-  { formData }: IApiMethodArguments,
-): Promise<IUser | null> => {
-  return axios.post(`${Config.API_URL}/user/authorized`, formData)
-    .then(res => res.data.data)
-    .then(res => convertUser(Object.values(res.user)[0] as IUser) || null)
-}
-export const getAuthorizedUser = apiMethod<typeof _getAuthorizedUser>(_getAuthorizedUser)
-
-const _editUser = (
-  { formData }: IApiMethodArguments,
-  data: Partial<IUser>,
-) => {
-  // @TODO вернуть u_city когда наладим автозаполнение
-  const { token, u_hash, u_id, u_city, ...userData } = data
-  if (token && u_hash && u_id) addToFormData(formData, { token, u_hash, u_id })
-  console.log('formData', formData,data)
-  addToFormData(formData, {
-    data: JSON.stringify({
-      u_city: u_city || undefined,
-      ...reverseConvertUser(userData),
-    }),
-  })
-
-  return axios.post(`${Config.API_URL}/user`, formData)
-    .then(res => res.data)
-}
-export const editUser = apiMethod<typeof _editUser>(_editUser)
-export const editUserAfterRegister = apiMethod<typeof _editUser>(_editUser, { authRequired: false })
-
 const _getImageBlob = (
   { formData }: IApiMethodArguments,
   id: number,
@@ -232,7 +188,7 @@ export const getImageBlob = apiMethod<typeof _getImageBlob>(_getImageBlob)
 const _getImageFile = (
   { formData }: IApiMethodArguments,
   id: number,
-) => {
+): Promise<[number, File]> => {
   return axios.post(`${Config.API_URL}/dropbox/file/${id}`, formData, {
     responseType: 'blob',
   }).then(res => {
@@ -277,20 +233,6 @@ const _setOutDrive = (
     .then(res => res.data)
 }
 export const setOutDrive = apiMethod<typeof _setOutDrive>(_setOutDrive)
-
-const _remindPassword = (
-  { formData }: IApiMethodArguments,
-  email: IUser['u_email'],
-) => {
-  addToFormData(formData, {
-    u_email: email,
-  })
-
-  return axios.post(`${Config.API_URL}/remind`, formData)
-    .then(res => res.data)
-    .then(res => res.status === 'error' ? Promise.reject() : res)
-}
-export const remindPassword = apiMethod<typeof _remindPassword>(_remindPassword, { authRequired: false })
 
 export const reverseGeocode = (
   lat: ValueOf<Stringify<IBookingCoordinatesLatitude>>,

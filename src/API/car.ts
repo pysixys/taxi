@@ -1,18 +1,68 @@
 import axios from 'axios'
 import { ICar, IUser } from '../types/types'
+import { IResponse } from '../types/api'
 import { convertCar } from '../tools/convert'
 import { addToFormData, apiMethod, IApiMethodArguments } from '../tools/api'
 import Config from '../config'
 
-const _editCar = (
-  { formData }: IApiMethodArguments,
-  data: any,
-): Promise<any> => {
-  const { c_id, ...payload } = data
-  addToFormData(formData, { data: JSON.stringify(payload) })
-  return axios.post(`${Config.API_URL}/car/${c_id}`, formData)
+type TCreateCar = Pick<ICar,
+  'cm_id' |
+  'seats' |
+  'registration_plate' |
+  'color' |
+  'cc_id'
+> & Partial<Pick<ICar,
+  'photo' |
+  'details'
+>>
+interface ICreateCarResponse {
+  created_car: {
+    c_id: ICar['c_id'],
+    u_id: IUser['u_id']
+  }
 }
-export const editCar = apiMethod<typeof _editCar>(_editCar)
+
+export const createCar = apiMethod(async(
+  { formData }: IApiMethodArguments,
+  fields: {
+    u_id: IUser['u_id']
+  } & TCreateCar,
+): Promise<IResponse<'200', ICreateCarResponse> | IResponse<'404', {}>> => {
+  const { u_id, ...formFields } = fields
+  addToFormData(formData, { data: JSON.stringify(formFields) })
+  const { data } = await axios.post(
+    `${Config.API_URL}/user/${u_id}/car`,
+    formData,
+  )
+  return data
+})
+
+export const createUserCar = apiMethod(async(
+  { formData }: IApiMethodArguments,
+  fields: TCreateCar,
+): Promise<IResponse<'200', ICreateCarResponse> | IResponse<'404', {}>> => {
+  addToFormData(formData, { data: JSON.stringify(fields) })
+  const { data } = await axios.post(`${Config.API_URL}/car`, formData)
+  return data
+})
+
+export const editCar = apiMethod(async(
+  { formData }: IApiMethodArguments,
+  id: ICar['c_id'],
+  fields: Partial<Pick<ICar,
+    'cm_id' |
+    'seats' |
+    'registration_plate' |
+    'color' |
+    'photo' |
+    'details' |
+    'cc_id'
+  >>,
+): Promise<IResponse<'200', {}> | IResponse<'404', {}>> => {
+  addToFormData(formData, { data: JSON.stringify(fields) })
+  const { data } = await axios.post(`${Config.API_URL}/car/${id}`, formData)
+  return data
+})
 
 const _getUserCars = (
   { formData }: IApiMethodArguments,

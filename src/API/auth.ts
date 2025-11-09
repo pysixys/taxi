@@ -9,10 +9,10 @@ const _register = (
   { formData }: IApiMethodArguments,
   data: Partial<IUser>,
 ): Promise<{
-    u_id: IUser['u_id'],
-    email_status: boolean,
-    string: string,
-    error?: string
+  u_id: IUser['u_id'],
+  email_status: boolean,
+  string: string,
+  error?: string
 } | null> => {
   addToFormData(formData, reverseConvertUser(data))
   if (data.u_role === EUserRoles.Driver) addToFormData(formData, { 'st': 1 })
@@ -48,13 +48,27 @@ const _register = (
  */
 export const register = apiMethod<typeof _register>(_register, { authRequired: false })
 
+const _remindPassword = (
+  { formData }: IApiMethodArguments,
+  email: IUser['u_email'],
+) => {
+  addToFormData(formData, {
+    u_email: email,
+  })
+
+  return axios.post(`${Config.API_URL}/remind`, formData)
+    .then(res => res.data)
+    .then(res => res.status === 'error' ? Promise.reject() : res)
+}
+export const remindPassword = apiMethod<typeof _remindPassword>(_remindPassword, { authRequired: false })
+
 const _login = (
   { formData }: IApiMethodArguments,
   data: {
-        login: IUser['u_email'] | IUser['u_phone'],
-        password?: string | undefined,
-        type: ERegistrationType
-    },
+    login: IUser['u_email'] | IUser['u_phone'],
+    password?: string | undefined,
+    type: ERegistrationType
+  },
 ): Promise<{ user: IUser | null, tokens: ITokens | null, data: string | null } | null> => {
   addToFormData(formData, {
     ...data,

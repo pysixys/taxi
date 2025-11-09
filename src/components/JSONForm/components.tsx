@@ -23,11 +23,11 @@ const customComponents: Record<string, any> = {
 }
 
 interface IPropsCustomComponent {
-    component?: string,
-    props?: Record<string, any>,
-    values: any,
-    variables?: Record<string, any>,
-    visible?: boolean | string | TCalculate<boolean | string>
+  component?: string,
+  props?: Record<string, any>,
+  values: any,
+  variables?: Record<string, any>,
+  visible?: boolean | string | TCalculate<boolean | string>
 }
 
 const CustomComponent: React.FC<IPropsCustomComponent> = ({

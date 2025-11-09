@@ -1,30 +1,35 @@
 import React, { useCallback, useState, useEffect } from 'react'
 import cn from 'classnames'
 import { ILanguage } from '../../types/types'
-import Button from '../Button'
-import { getCalculation, getTranslation, parseVariable } from './utils'
-import { TFormElement, TOption, TFormValues } from './types'
-import './styles.scss'
+import { getPhoneMask } from '../../tools/phoneUtils'
 import { t } from '../../localization'
-import { formatPhoneNumber, getPhoneMask } from '../../tools/phoneUtils'
+import Button from '../Button'
+import { TFormElement, TOption, TFormValues } from './types'
+import {
+  getCalculation, isRequired,
+  getTranslation, parseVariable,
+} from './utils'
+import './styles.scss'
 
-const JSONFormElement = (props: {
-    element: TFormElement,
-    validationSchema?: any,
-    onChange: (e: any, name: string, value: any) => any,
-    values?: TFormValues,
-    language?: ILanguage,
-    variables?: Record<string, any>,
-    errors?: Record<string, any>
-}) => {
-  const {
-    onChange = () => {},
-    values = {},
-    validationSchema,
-    language,
-    variables = {},
-    errors = {},
-  } = props
+interface IProps {
+  element: TFormElement
+  validationSchema?: any
+  onChange: (e: any, name: string, value: any) => any
+  values?: TFormValues
+  language?: ILanguage
+  variables?: Record<string, any>
+  errors?: Record<string, any>
+}
+
+function JSONFormElement({
+  onChange = () => {},
+  values = {},
+  validationSchema,
+  language,
+  variables = {},
+  errors = {},
+  element: formElement,
+}: IProps) {
   const {
     accept,
     placeholder,
@@ -32,16 +37,15 @@ const JSONFormElement = (props: {
     visible,
     disabled,
     options = [],
-    validation = {},
-  } = props.element
+  } = formElement
 
   const [ errorMessage, setErrorMessage ] = useState<string>('')
   const [ files, setFiles ] = useState<[any, File][]>()
-  const name: string = getCalculation(props.element.name, values, variables)
-  const type = getCalculation(props.element.type, values, variables)
+  const name: string = getCalculation(formElement.name, values, variables)
+  const type = getCalculation(formElement.type, values, variables)
   const value = values[name]
   const hintTextName = `hint_${name.split('.').slice(-1)[0]}`
-  let hint = props.element.hint
+  let hint = formElement.hint
   if (!hint && getTranslation(hintTextName) !== hintTextName) {
     hint = getTranslation(hintTextName)
   }
@@ -54,8 +58,7 @@ const JSONFormElement = (props: {
 
   const validate = useCallback((value: any) => {
     if (!validationSchema) return
-    const empty = getCalculation(validation.required, values, variables) ? '' : null
-    validationSchema.validate(value === '' ? empty : value)
+    validationSchema.validate(value)
       .then(() => {
         setErrorMessage('')
       })
@@ -69,44 +72,40 @@ const JSONFormElement = (props: {
     if (!isVisible) return null
   }
 
+  type TElement = HTMLInputElement | HTMLSelectElement
   const commonProperties = {
     name,
     disabled: parseVariable(getCalculation(disabled, values, variables), variables),
-    onChange: (e: any) => {
-      const empty = getCalculation(validation?.required, values, variables) ? '' : null
-      const value = e.target.value === '' ? empty : e.target.value
-      if (type === 'select') {
-        console.log('Select field name:', name)
-        console.log('Selected value:', value)
-        console.log('Available options:', getCalculation(options, values, variables))
-      }
+    onChange(event: React.ChangeEvent<TElement>) {
+      const value = getValue(event)
       validate(value)
-      onChange(e, e.target.name, value)
+      onChange(event, event.target.name, value)
     },
-    onBlur: (e: any) => {
-      const empty = getCalculation(validation?.required, values, variables) ? '' : null
-      const value = e.target.value === '' ? empty : e.target.value
-      validate(value)
+    onBlur(event: React.ChangeEvent<TElement>) {
+      validate(getValue(event))
     },
   }
+  const getValue = (event: React.ChangeEvent<TElement>) => type === 'select' ?
+    event.target.value || null :
+    event.target.value
 
   let hintElement: any = !hint ?
     null :
     (
       <div className="element__hint">
         <span className="element__hint_icon">?</span>
-        <div className={`element__hint_message element__hint_message_${!props.element.label ? 'left' : 'right'}`}>
+        <div className={`element__hint_message element__hint_message_${!formElement.label ? 'left' : 'right'}`}>
           {getTranslation(hint)}
         </div>
       </div>
     )
 
-  let labelElement: any = !props.element.label ?
+  let labelElement: any = !formElement.label ?
     null :
     (
       <div className="element__label">
-        {getTranslation(getCalculation(props.element.label, values, variables))}
-        {getCalculation(validation.required, values, variables) && <span className="element__required">*</span>}
+        {getTranslation(getCalculation(formElement.label, values, variables))}
+        {isRequired(formElement, values, variables) && <span className="element__required">*</span>}
         {hintElement}
       </div>
     )
@@ -126,7 +125,7 @@ const JSONFormElement = (props: {
     return (
       <Button
         type={type}
-        text={getTranslation(getCalculation(props.element.label, values, variables))}
+        text={getTranslation(getCalculation(formElement.label, values, variables))}
         disabled={parseVariable(getCalculation(disabled, values, variables), variables)}
         skipHandler
       />
@@ -134,13 +133,15 @@ const JSONFormElement = (props: {
   }
 
   if (type === 'select') {
+    const required = isRequired(formElement, values, variables)
     const selectOptions = getCalculation(options, values, variables)
     element = (
       <select
         {...commonProperties}
-        value={value}
+        value={value ?? ''}
         className='element__select_input'
       >
+        {!required && <option value="">-</option>}
         {selectOptions.map((option: TOption) => (
           <option key={option.value} value={option.value}>
             {!!option.label && getTranslation(option.label)}
@@ -186,10 +187,10 @@ const JSONFormElement = (props: {
         <span>
           <span
             dangerouslySetInnerHTML={{
-              __html: getTranslation(getCalculation(props.element.label, values, variables)),
+              __html: getTranslation(getCalculation(formElement.label, values, variables)),
             }}
           />
-          {getCalculation(validation.required, values, variables) && <span className="element__required">*</span>}
+          {isRequired(formElement, values, variables) && <span className="element__required">*</span>}
         </span>
       </label>
     )
@@ -218,7 +219,7 @@ const JSONFormElement = (props: {
               onChange(e, name, newFiles.length ? newFiles : null)
             }}
           >
-            <img src={URL.createObjectURL(file[1])}></img>
+            <img src={URL.createObjectURL(file[1])} alt="" />
           </div>
         ))}
         <label className={cn('element__file_add', {

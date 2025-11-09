@@ -1,5 +1,7 @@
 import { t } from '../../localization'
-import { TExpression, TCondition, TOperation, TFormValues } from './types'
+import {
+  TOption, TFormElement, TExpression, TCondition, TOperation, TFormValues,
+} from './types'
 
 export const isExpression = (value: any) => {
   if (typeof value !== 'object') return false
@@ -16,7 +18,7 @@ export const isCalculate = (value: any) => {
 export const getConditionResult = (left: any, op: TOperation, right: any) => {
   switch (op) {
     case '=':
-      return left == right
+      return left == right // eslint-disable-line eqeqeq
 
     case '>':
       return left > right
@@ -54,9 +56,9 @@ export const getCalculation = (calculate: any, values?: TFormValues, variables?:
 
   const resultFn = (values: TFormValues) => {
     let returnValue: any
-    calculate.map((exp: TExpression<any>) => {
+    calculate.forEach((exp: TExpression<any>) => {
       const { expression, result } = exp
-      expression.map((item: TCondition) => {
+      expression.forEach((item: TCondition) => {
         if (returnValue) return
         const [ key, op, right ] = item
         let left = values[key]
@@ -71,21 +73,42 @@ export const getCalculation = (calculate: any, values?: TFormValues, variables?:
   return values === undefined ? resultFn : resultFn(values)
 }
 
-const isObject = (item: any) => item && typeof item === 'object' && !Array.isArray(item)
+export const isRequired = (
+  field: TFormElement,
+  values?: TFormValues,
+  variables?: Record<string, any>,
+): boolean => {
+  return values ?
+    field.validation?.required != null ?
+      getCalculation(field.validation.required, values, variables) :
+      ['select', 'radio']
+        .includes(getCalculation(field.type, values, variables) as any) :
+    typeof field.validation?.required === 'boolean' ?
+      field.validation.required :
+      typeof field.type === 'string' ?
+        ['select', 'radio'].includes(field.type as any) :
+        false
+}
 
-export const mergeDeep = (target: any, source: any) => {
-  let output = Object.assign({}, target)
-  if (isObject(target) && isObject(source)) {
-    Object.keys(source).forEach(key => {
-      if (isObject(source[key])) {
-        if (!(key in target))
-          Object.assign(output, { [key]: source[key] })
-        else
-          output[key] = mergeDeep(target[key], source[key])
-      } else {
-        Object.assign(output, { [key]: source[key] })
-      }
-    })
+export function* getOptions(field: TFormElement): Iterable<TOption> {
+  if (!field.options)
+    return
+
+  if (field.options instanceof Array) {
+    for (const item of field.options)
+      if ('value' in item)
+        yield item
   }
-  return output
+
+  else {
+    const path = field.options.path.split('.')
+    const map = path.reduce((res, key) => res[key], (window as any).data)
+
+    if (map && typeof map === 'object')
+      for (const num in map)
+        yield {
+          value: num,
+          labelLang: map[num],
+        }
+  }
 }

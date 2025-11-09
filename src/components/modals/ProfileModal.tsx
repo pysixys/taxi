@@ -1,26 +1,97 @@
 import React, { useCallback, useState, useEffect, useMemo } from 'react'
 import { connect, ConnectedProps } from 'react-redux'
-import { t, TRANSLATION } from '../../localization'
-import { getImageFile, getUserCars } from '../../API'
-import { modalsActionCreators, modalsSelectors } from '../../state/modals'
-import ErrorFrame from '../../components/ErrorFrame'
+import {
+  EStatuses, EUserRoles, EUserCheckStates,
+  IUser, ICar,
+} from '../../types/types'
 import images from '../../constants/images'
-import { IRootState } from '../../state'
-import Overlay from './Overlay'
-import { userSelectors, userActionCreators } from '../../state/user'
-import { defaultProfileModal } from '../../state/modals/reducer'
-import { EStatuses, EUserRoles, ILanguage } from '../../types/types'
 import { getBase64 } from '../../tools/utils'
-import { configSelectors, configActionCreators } from '../../state/config'
-import * as API from '../../API'
-import JSONForm from '../JSONForm'
-import SITE_CONSTANTS from '../../siteConstants'
 import { formatPhoneNumber, normalizePhoneNumber } from '../../tools/phoneUtils'
+import * as API from '../../API'
+import {
+  TEditClient,
+  TEditDriverCheckRequired,
+  TEditDriverCheckActive,
+} from '../../API/user'
+import { getImageFile } from '../../API'
+import { IRootState } from '../../state'
+import { modalsActionCreators, modalsSelectors } from '../../state/modals'
+import { defaultProfileModal } from '../../state/modals/reducer'
+import { userSelectors, userActionCreators } from '../../state/user'
+import { carsSelectors, carsActionCreators } from '../../state/cars'
+import { configSelectors, configActionCreators } from '../../state/config'
+import { t, TRANSLATION } from '../../localization'
+import JSONForm from '../JSONForm'
+import { TForm } from '../JSONForm/types'
+import ErrorFrame from '../ErrorFrame'
+import Overlay from './Overlay'
 import './styles.scss'
+
+const CLIENT_FIELDS = new Set<keyof TEditClient>([
+  'u_role',
+  'u_name',
+  'u_family',
+  'u_middle',
+  'u_phone',
+  'u_email',
+  'u_photo',
+  'u_lang',
+  'u_currency',
+  'ref_code',
+  'u_details',
+])
+const DRIVER_CHECK_REQUIRED_FIELDS = new Set<
+  keyof TEditDriverCheckRequired
+>([
+  'u_role',
+  'u_name',
+  'u_family',
+  'u_middle',
+  'u_phone',
+  'u_email',
+  'u_photo',
+  'u_city',
+  'u_lang_skills',
+  'u_description',
+  'u_birthday',
+  'ref_code',
+  'u_details',
+])
+const DRIVER_CHECK_ACTIVE_FIELDS = new Set<
+  keyof TEditDriverCheckActive
+>([
+  'u_role',
+  'u_lang',
+  'u_currency',
+  'u_gps_software',
+  'u_active',
+  'out_drive',
+  'out_address',
+  'out_latitude',
+  'out_longitude',
+  'out_est_datetime',
+  'out_s_address',
+  'out_s_latitude',
+  'out_s_longitude',
+  'out_passengers',
+  'out_luggage',
+  'ref_code',
+  'u_details',
+])
+const CAR_FIELDS = new Set<keyof Parameters<typeof API.editCar>[1]>([
+  'cm_id',
+  'seats',
+  'registration_plate',
+  'color',
+  'photo',
+  'details',
+  'cc_id',
+])
 
 const mapStateToProps = (state: IRootState) => ({
   tokens: userSelectors.tokens(state),
   user: userSelectors.user(state),
+  car: carsSelectors.userPrimaryCar(state),
   language: configSelectors.language(state),
   isOpen: modalsSelectors.isProfileModalOpen(state),
 })
@@ -29,25 +100,28 @@ const mapDispatchToProps = {
   setProfileModal: modalsActionCreators.setProfileModal,
   setMessageModal: modalsActionCreators.setMessageModal,
   updateUser: userActionCreators.initUser,
+  getUserCars: carsActionCreators.getUserCars,
+  editCar: carsActionCreators.editCar,
   setLanguage: configActionCreators.setLanguage,
 }
 
 const connector = connect(mapStateToProps, mapDispatchToProps)
 
-interface IProps extends ConnectedProps<typeof connector> {
-}
+interface IProps extends ConnectedProps<typeof connector> {}
 
-const CardDetailsModal: React.FC<IProps> = ({
+function ProfileModal({
   tokens,
   user,
+  car,
   language,
   isOpen,
   setProfileModal,
   setMessageModal,
   updateUser,
+  getUserCars,
+  editCar,
   setLanguage,
-}) => {
-  const [languagesOpened, setLanguagesOpened] = useState(false)
+}: IProps) {
   const onChangeAvatar = useCallback((e: any) => {
     const file = e.target.files[0]
     if (!user || !tokens || !file) return
@@ -57,45 +131,55 @@ const CardDetailsModal: React.FC<IProps> = ({
       .catch(error => alert(JSON.stringify(error)))
   }, [user, tokens])
 
-  const [ isValuesLoaded, setIsValuesLoaded ] = useState(false)
-  const [ isSubmittingForm, setIsSubmittingForm ] = useState(false)
-  const [ defaultValues, setDefaultValues ] = useState({})
-  const [ errors, setErrors ] = useState<Record<string, any>>({})
+  useEffect(() => {
+    getUserCars()
+  }, [])
 
+  const [passportPhoto, setPassportPhoto] =
+    useState<[number, File][] | null>(null)
+  const [driverLicensePhoto, setDriverLicensePhoto] =
+    useState<[number, File][] | null>(null)
   useEffect(() => {
     if (!isOpen) return
     const passportImgs = user?.u_details?.passport_photo || []
     const driverLicenseImgs = user?.u_details?.driver_license_photo || []
-    Promise.all([
-      Promise.all(passportImgs.map(getImageFile)),
-      Promise.all(driverLicenseImgs.map(getImageFile)),
-    ]).then(res => ({
-      u_name: user?.u_name,
-      u_email: user?.u_email,
-      u_phone: user?.u_phone ? formatPhoneNumber(user.u_phone) : '',
-      u_city: user?.u_city,
-      u_details: {
-        state: user?.u_details?.state,
-        card: user?.u_details?.card,
-        street: user?.u_details?.street,
-        passport_photo: res[0],
-        driver_license_photo: res[1],
-        subscribe: user?.u_details?.subscribe,
-        carMark: user?.u_details?.carMark,
-        carModel: user?.u_details?.carModel,
-      },
-      ref_code: user?.ref_code,
-      u_car: {},
-    }))
-      .then(values => {
-        getUserCars().then((res = []) => {
-          const u_car = res[0] || {}
-          values.u_car = u_car
-          setDefaultValues(values)
-          setIsValuesLoaded(true)
-        })
-      })
+    Promise.all(passportImgs.map(getImageFile)).then(setPassportPhoto)
+    Promise.all(driverLicenseImgs.map(getImageFile)).then(setDriverLicensePhoto)
   }, [isOpen])
+
+  type TFormValues = Omit<IUser, 'u_details' | 'u_car'> & {
+    u_details: Omit<IUser['u_details'],
+      'passport_photo' |
+      'driver_license_photo'
+    > & {
+      passport_photo: [number, File][],
+      driver_license_photo: [number, File][]
+    }
+    u_car: ICar | null
+  }
+
+  const isValuesLoaded = !!(
+    user &&
+    car !== undefined &&
+    passportPhoto &&
+    driverLicensePhoto
+  )
+  const defaultValues: TFormValues | {} = useMemo(() => isValuesLoaded ?
+    {
+      ...user,
+      u_phone: user.u_phone ? formatPhoneNumber(user.u_phone) : '',
+      u_details: {
+        ...user.u_details,
+        passport_photo: passportPhoto,
+        driver_license_photo: driverLicensePhoto,
+      },
+      u_car: car,
+    } :
+    {}
+  , [isValuesLoaded, user, car, passportPhoto, driverLicensePhoto])
+
+  const [ isSubmittingForm, setIsSubmittingForm ] = useState(false)
+  const [ errors, setErrors ] = useState<Record<string, any>>({})
 
   const handleChange = useCallback((name: string, value: any) => {
     setErrors({
@@ -104,125 +188,159 @@ const CardDetailsModal: React.FC<IProps> = ({
     })
   }, [errors])
 
-  const handleSubmitForm = useCallback((values: Record<string, any>) => {
-    console.log('VALUES: ',values)
-    const isChangeRefCode = values.ref_code !== user?.ref_code
+  async function handleSubmitForm(formValues: TFormValues) {
+    const {
+      u_details: { passport_photo, driver_license_photo, ...u_details },
+      u_car,
+      ...values
+    } = formValues
 
-    const apiValues = { ...values };
-    
-    if (apiValues.u_phone) {
-      apiValues.u_phone = normalizePhoneNumber(apiValues.u_phone, false, user?.u_role === EUserRoles.Driver);
+    if ('u_phone' in values && values.u_phone) {
+      values.u_phone = normalizePhoneNumber(
+        values.u_phone,
+        false,
+        user!.u_role === EUserRoles.Driver,
+      )
     }
 
-    let beforeSave = Promise.resolve(true)
-    if (isChangeRefCode) {
-      beforeSave = API.checkRefCode(apiValues.ref_code)
-        .then(res => {
-          if (!res) {
-            setErrors({
-              ref_code: true,
-            })
-            return false
-          }
-          return true
+    if (values.ref_code && values.ref_code !== user!.ref_code) {
+      const res = await API.checkRefCode(values.ref_code)
+      if (!res) {
+        setErrors({
+          ref_code: true,
         })
-    }
-
-    beforeSave.then((isSuccessBefore) => {
-      if (!isSuccessBefore) return
-      setIsSubmittingForm(true)
-
-      if (user?.u_role === EUserRoles.Client) {
-        return API.editUser(apiValues)
-          .then(res => {
-            setMessageModal({ isOpen: true, status: EStatuses.Success, message: t(TRANSLATION.SUCCESS_PROFILE_UPDATE_MESSAGE) })
-          })
-          .catch(() =>
-            setMessageModal({ isOpen: true, status: EStatuses.Fail, message: 'An error occured' }),
-          )
-          .finally(() => {
-            setIsSubmittingForm(false)
-          })
+        return
       }
+    }
 
-      const { u_details, u_car } = apiValues
+    setIsSubmittingForm(true)
 
-      API.editCar(u_car)
-        .then(res => {
-          const isError = res?.data?.message === 'busy registration plate'
-          if (isError) {
-            setErrors({
-              ...errors,
-              'u_car.registration_plate': true,
-            })
-            setIsSubmittingForm(false)
-            return
-          }
-
-          const imagesKeys = ['passport_photo', 'driver_license_photo']
-          const images = [u_details?.passport_photo || [], u_details?.driver_license_photo || []]
-          const imagesMap: Record<string, any> = {}
-          Promise.all(images.map((imageList: [any, File][], i) => {
-            const key: string = imagesKeys[i]
-            if (!imagesMap[key]) imagesMap[key] = []
-            return Promise.all(
-              imageList
-                .map((image: [any, File]) => {
-                  if (image[0]) imagesMap[key].push(image[0])
-                  return image
-                })
-                .filter((image: [any, File]) => !image[0])
-                .map((image: [any, File]) =>
-                  API.uploadFile({
-                    file: image[1],
-                    u_id: user?.u_id,
-                    token: tokens?.token,
-                    u_hash: tokens?.u_hash,
-                  }).then(res => {
-                    if (res?.dl_id) imagesMap[key].push(res.dl_id)
-                  }),
-                ),
-            )
-          })).then(() => {
-            const { u_car, ...payload } = apiValues
-            payload.u_details = {
-              ...u_details,
-              ...imagesMap,
-            }
-            API.editUser(payload)
-              .then(res => {
-                setMessageModal({ isOpen: true, status: EStatuses.Success, message: t(TRANSLATION.SUCCESS_PROFILE_UPDATE_MESSAGE) })
-                updateUser()
-              })
-              .catch(() =>
-                setMessageModal({ isOpen: true, status: EStatuses.Fail, message: 'An error occured' }),
-              )
-          })
-            .finally(() => {
-              setIsSubmittingForm(false)
-            })
+    if (user!.u_role === EUserRoles.Client) {
+      try {
+        await API.editUser(Object.fromEntries(Object.entries(values)
+          .filter(([key]) => CLIENT_FIELDS.has(key as any)),
+        ) as any)
+        updateUser()
+        setMessageModal({
+          isOpen: true,
+          status: EStatuses.Success,
+          message: t(TRANSLATION.SUCCESS_PROFILE_UPDATE_MESSAGE),
         })
-    })
-  }, [])
+      } catch {
+        setMessageModal({
+          isOpen: true,
+          status: EStatuses.Fail,
+          message: 'An error occured',
+        })
+      }
+      setIsSubmittingForm(false)
+      return
+    }
+
+    if (car) {
+      const res = await editCar(
+        car.c_id,
+        Object.fromEntries(Object.entries(u_car!)
+          .filter(([key]) => CAR_FIELDS.has(key as any)),
+        ) as any,
+      )
+      const isError = res.message === 'busy registration plate'
+      if (isError) {
+        setErrors({
+          ...errors,
+          'u_car.registration_plate': true,
+        })
+        setIsSubmittingForm(false)
+        return
+      }
+    }
+
+    const imagesKeys = ['passport_photo', 'driver_license_photo']
+    const images = [passport_photo ?? [], driver_license_photo ?? []]
+    const imagesMap: Record<string, any> = {}
+
+    try {
+      await Promise.all(images.map((imageList: [any, File][], i) => {
+        const key: string = imagesKeys[i]
+        if (!imagesMap[key]) imagesMap[key] = []
+        return Promise.all(
+          imageList
+            .map((image: [any, File]) => {
+              if (image[0]) imagesMap[key].push(image[0])
+              return image
+            })
+            .filter((image: [any, File]) => !image[0])
+            .map((image: [any, File]) =>
+              API.uploadFile({
+                file: image[1],
+                u_id: user!.u_id,
+                token: tokens?.token,
+                u_hash: tokens?.u_hash,
+              }).then(res => {
+                if (res?.dl_id) imagesMap[key].push(res.dl_id)
+              }),
+            ),
+        )
+      }))
+
+      const fields = user!.u_check_state === EUserCheckStates.Required ||
+        !user!.u_check_state ?
+        DRIVER_CHECK_REQUIRED_FIELDS :
+        user!.u_check_state === EUserCheckStates.Active ?
+          DRIVER_CHECK_ACTIVE_FIELDS :
+          new Set()
+      try {
+        await API.editUser({
+          ...Object.fromEntries(Object.entries(values)
+            .filter(([key]) => fields.has(key as any)),
+          ) as any,
+          u_details: { ...u_details, ...imagesMap },
+        })
+        updateUser()
+        setMessageModal({
+          isOpen: true,
+          status: EStatuses.Success,
+          message: t(TRANSLATION.SUCCESS_PROFILE_UPDATE_MESSAGE),
+        })
+      } catch {
+        setMessageModal({
+          isOpen: true,
+          status: EStatuses.Fail,
+          message: 'An error occured',
+        })
+      }
+    }
+
+    finally {
+      setIsSubmittingForm(false)
+    }
+  }
 
   const formState = useMemo(() => ({
     pending: isSubmittingForm,
   }), [isSubmittingForm])
 
-  const formStr = (window as any).data?.site_constants?.form_profile?.value
-  let form
-  try {
-    form = JSON.parse(formStr)
-  } catch (e) {
+  let fields = useMemo(() => {
+    try {
+      const formStr = (window as any).data?.site_constants?.form_profile?.value
+      return (JSON.parse(formStr).fields as TForm) ?? null
+    } catch {
+      return null
+    }
+  }, [])
+
+  const isClient = user?.u_role === EUserRoles.Client
+  fields = useMemo(() => fields && isClient ?
+    fields.filter(field =>
+      (field.name && CLIENT_FIELDS.has(field.name as any)) ||
+      field.type === 'submit',
+    ) :
+    fields
+  , [isClient])
+
+  if (fields === null)
     return <ErrorFrame title='Bad json in data.js' />
-  }
 
-  if (user?.u_role === EUserRoles.Client) {
-    const userFields = ['u_name', 'u_phone', 'u_email', 'ref_code', 'u_details.subscribe', 'submit']
-    form.fields = form.fields.filter((field: any) => userFields.includes(field.name))
-  }
-
-  const toggleLanguagesOpened = () => setLanguagesOpened(prev => !prev)
   return isOpen && (
     <Overlay
       isOpen={isOpen}
@@ -273,7 +391,7 @@ const CardDetailsModal: React.FC<IProps> = ({
           {isValuesLoaded &&
             <JSONForm
               defaultValues={defaultValues}
-              fields={form.fields}
+              fields={fields}
               onSubmit={handleSubmitForm}
               onChange={handleChange}
               state={formState}
@@ -286,5 +404,4 @@ const CardDetailsModal: React.FC<IProps> = ({
   )
 }
 
-export default connector(CardDetailsModal)
-
+export default connector(ProfileModal)

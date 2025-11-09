@@ -496,7 +496,7 @@ export enum EWorkTypes {
   Company
 }
 
-enum EUserCheckStates {
+export enum EUserCheckStates {
   Required = 1,
   Active,
   Rejected,

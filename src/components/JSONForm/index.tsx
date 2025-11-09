@@ -1,16 +1,16 @@
 import React, { useCallback, useMemo, useState } from 'react'
-import * as yup from 'yup'
 import { connect, ConnectedProps } from 'react-redux'
-import { t, TRANSLATION } from '../../localization'
+import * as yup from 'yup'
+import { EStatuses, ILanguage } from '../../types/types'
+import { firstItem, makeFlat, makeNested, deepGet } from '../../tools/utils'
 import { IRootState } from '../../state'
 import { configSelectors } from '../../state/config'
-import { EStatuses, ILanguage } from '../../types/types'
+import { t, TRANSLATION } from '../../localization'
 import JSONFormElement from './JSONFormElement'
 import CustomComponent from './components'
 import { TForm, TFormElement } from './types'
-import { getCalculation, mergeDeep } from './utils'
+import { getCalculation, isRequired, getOptions } from './utils'
 import './styles.scss'
-import { formProfile, formRegister } from './data'
 
 const mapStateToProps = (state: IRootState) => ({
   language: configSelectors.language(state),
@@ -20,23 +20,22 @@ const mapStateToProps = (state: IRootState) => ({
 const connector = connect(mapStateToProps)
 
 interface IProps extends ConnectedProps<typeof connector> {
-    language: ILanguage,
-    configStatus: EStatuses,
-    fields: TForm,
-    onSubmit?: (values: any) => any,
-    onChange?: (fieldName: string, value: any) => any,
-    defaultValues?: Record<string, any>,
-    errors?: Record<string, any>,
-    state?: {
-        success?: boolean,
-        failed?: boolean,
-        pending?: boolean,
-        errorMessage?: string,
-    }
+  language: ILanguage,
+  configStatus: EStatuses,
+  fields: TForm,
+  onSubmit?: (values: any) => any,
+  onChange?: (fieldName: string, value: any) => any,
+  defaultValues?: Record<string, any>,
+  errors?: Record<string, any>,
+  state?: {
+    success?: boolean,
+    failed?: boolean,
+    pending?: boolean,
+    errorMessage?: string,
+  }
 }
 
-
-const JSONForm: React.FC<IProps> = ({
+function JSONForm({
   configStatus,
   language,
   onSubmit,
@@ -45,109 +44,158 @@ const JSONForm: React.FC<IProps> = ({
   defaultValues = {},
   errors = {},
   fields,
-}) => {
-  const data = (window as any).data || {}
+}: IProps) {
 
-  const getDefaultValue = useCallback((item: TFormElement) => {
-    if (!item.name) return null
-    const path = item.name.split('.')
-    let value: any = path.reduce((res, key) => res ? res[key] : null, defaultValues)
-    if (value === undefined || value === null) {
-      value = item.defaultValue ?? (
-        item?.validation?.required &&
-                getCalculation(item?.validation?.required) &&
-                item?.type !== 'file' ?
-          '' :
-          null)
+  const [unfilteredValues, setValues] = useState(() => {
+    const initialValues: Record<string, any> = makeFlat(defaultValues)
+
+    const reverseFilteredDefaults: Record<string, any> = {}
+    for (const field of fields) {
+      if (!(
+        field.name &&
+        !Array.isArray(field.options) &&
+        field.options?.filter
+      )) continue
+      const { path, filter } = field.options
+
+      const value = initialValues[field.name] ?? field.defaultValue
+      const map = deepGet((window as any).data, path)
+      const filterFieldValue = (map as any)?.[value as any]?.[filter.field]
+      if (filterFieldValue != null)
+        reverseFilteredDefaults[filter.by] = filterFieldValue
     }
-    return value
-  }, [])
 
-  const initialValues = useMemo(
-    () => fields.reduce((res: any, item: TFormElement) => !item.name ?
-      res :
-      ({
-        ...res,
-        [item.name]: getDefaultValue(item),
-      }),
-    {}), [fields],
-  )
-  const [ values, setValues ] = useState(mergeDeep(defaultValues, initialValues))
-  const [ formErrors, setFormErrors ] = useState(errors)
+    for (const field of fields) {
+      if (!field.name)
+        continue
 
-  const form = useMemo(() => {
-    return fields.map(field => {
-      if (field.type === 'select' && !Array.isArray(field.options) && field.options?.path) {
-        const path = field.options.path.split('.')
-        const map = path.reduce((res, key) => res[key], data)
+      let value = initialValues[field.name] ??
+        reverseFilteredDefaults[field.name] ??
+        field.defaultValue ??
+        null
+
+      if (value === null) {
+        if (field.type === 'checkbox')
+          value = false
+
+        if ([
+          'select', 'radio',
+        ].includes(field.type as any) && isRequired(field))
+          value = firstItem(getOptions(field))?.value
+
+        if (!field.type || [
+          'text', 'email', 'phone', 'hidden',
+        ].includes(field.type as any))
+          value = ''
+      }
+
+      initialValues[field.name] = value
+    }
+
+    return initialValues
+  })
+  const [formErrors, setFormErrors] = useState(errors)
+
+  const [form, values] = useMemo(() => {
+    const form: TFormElement[] = []
+    const values = { ...unfilteredValues }
+
+    for (const field of fields) {
+      if (
+        field.type === 'select' &&
+        !Array.isArray(field.options) &&
+        field.options?.path
+      ) {
+        const map = deepGet((window as any).data, field.options.path)
         // Если есть фильтр, применяем его
         if (field.options.filter) {
-          const filterBy = field.options.filter.by;
-          const filterField = field.options.filter.field;
-          const selectedValue = values[filterBy];
+          const filterBy = field.options.filter.by
+          const filterField = field.options.filter.field
+          const selectedValue = values[filterBy]
 
-          
           // Проверяем, что map существует и является объектом
           if (!map || typeof map !== 'object') {
-            field.options = [];
-            field.defaultValue = undefined;
-            field.disabled = true;
-            return field;
+            form.push({
+              ...field,
+              options: [],
+              defaultValue: undefined,
+              disabled: true,
+            })
+            continue
           }
 
-          
           // Фильтруем опции по выбранному значению
           const filteredOptions = Object.entries(map)
             .filter(([_, value]: [string, any]) => {
-              if (!value || typeof value !== 'object') return false;
-              return value[filterField] === selectedValue;
+              if (!value || typeof value !== 'object') return false
+              return value[filterField] === selectedValue
             })
             .map(([num, value]: [string, any]) => ({
               value: num,
               labelLang: value,
-            }));
-          
+            }))
+
+          if (
+            field.name &&
+            (isRequired(field) || values[field.name] != null) &&
+            (map as any)[values[field.name]]?.[filterField] !== selectedValue
+          ) values[field.name] = filteredOptions[0]?.value ?? null
           // Если после фильтрации нет опций, показываем пустой список
-          if (filteredOptions.length === 0) {
-            field.options = [{
-              value: '',
-              labelLang: { ru: '', en: '' }
-            }];
-            field.defaultValue = '';
-            field.disabled = true;
-          } else {
-            field.options = filteredOptions;
-            field.defaultValue = field.options[0]?.value;
-            field.disabled = false;
-          }
+          if (filteredOptions.length === 0)
+            form.push({
+              ...field,
+              options: [{
+                value: '',
+                labelLang: { ru: '', en: '' },
+              }],
+              defaultValue: '',
+              disabled: true,
+            })
+          else
+            form.push({
+              ...field,
+              options: filteredOptions,
+              defaultValue: filteredOptions[0]?.value,
+            })
         } else {
           // Стандартная обработка без фильтрации
-          if (!map || typeof map !== 'object') {
-            field.options = [];
-            field.defaultValue = undefined;
-            field.disabled = true;
-          } else {
-            field.options = Object.keys(map).map(num => ({
+          if (!map || typeof map !== 'object')
+            form.push({
+              ...field,
+              options: [],
+              defaultValue: undefined,
+              disabled: true,
+            })
+          else {
+            const options = Object.entries(map).map(([num, value]) => ({
               value: num,
-              labelLang: map[num],
-            }));
-            field.defaultValue = field.options[0]?.value;
-            field.disabled = false;
+              labelLang: value,
+            }))
+            form.push({
+              ...field, options,
+              defaultValue: options[0]?.value,
+            })
           }
         }
       }
 
-      return field
-    })
-  }, [fields, values])
+      else
+        form.push(field)
+    }
+
+    return [form, values]
+  }, [fields, unfilteredValues])
 
   const validationSchema = form.reduce((res: any, item: TFormElement) => {
-    const { name, type, validation } = item
-    if (!name || !validation) return res
+    const { name, type, validation = {} } = item
+    if (!name) return res
     let obj
+
     if (type === 'file') {
       obj = yup.array()
-    } else if (type === 'number') {
+    }
+
+    else if (type === 'number') {
       obj = yup.number()
 
       if (getCalculation(validation.max, values)) {
@@ -156,18 +204,25 @@ const JSONForm: React.FC<IProps> = ({
       if (getCalculation(validation.min, values)) {
         obj = obj.min(getCalculation(validation.min, values), t(TRANSLATION.CARD_NUMBER_PATTERN_ERROR))
       }
-    } else if (type === 'checkbox') {
+    }
+
+    else if (type === 'checkbox') {
       obj = yup.bool()
 
-      if (getCalculation(validation.required, values)) {
+      if (isRequired(item, values))
         obj = obj.oneOf([true], t(TRANSLATION.REQUIRED_FIELD))
-      }
 
       return {
         ...res,
         [name]: obj,
       }
-    } else {
+    }
+
+    else if (type === 'select') {
+      obj = yup.string().nullable()
+    }
+
+    else {
       obj = yup.string()
 
       if (type === 'email') {
@@ -187,22 +242,21 @@ const JSONForm: React.FC<IProps> = ({
         if (Array.isArray(pattern)) {
           const regexp = new RegExp(...pattern)
           // Get phone mask from site constants
-          const phoneMask = (window as any).data?.site_constants?.def_maska_tel?.value;
+          const phoneMask = (window as any).data?.site_constants?.def_maska_tel?.value
           // Add phone mask as postfix to error message if it's a phone field
-          const errorMessage = name === 'u_phone' && phoneMask 
-            ? `${t(TRANSLATION.PHONE_PATTERN_ERROR)} ${phoneMask}`
-            : t(TRANSLATION.PHONE_PATTERN_ERROR);
+          const errorMessage = name === 'u_phone' && phoneMask ?
+            `${t(TRANSLATION.PHONE_PATTERN_ERROR)} ${phoneMask}` :
+            t(TRANSLATION.PHONE_PATTERN_ERROR)
           obj = obj.matches(getCalculation(regexp, values), errorMessage)
         }
       }
     }
 
-    if (getCalculation(validation.required, values)) {
-      if (type === 'file') {
+    if (isRequired(item, values)) {
+      if (type === 'file')
         obj = obj.min(1, t(TRANSLATION.REQUIRED_FIELD))
-      } else {
+      else
         obj = obj.required(t(TRANSLATION.REQUIRED_FIELD))
-      }
     } else {
       obj = obj.nullable().optional()
     }
@@ -221,31 +275,31 @@ const JSONForm: React.FC<IProps> = ({
       [name]: value,
     })
     onChange && onChange(name, value)
-    
+
     // Добавляем дополнительную валидацию для номера телефона
     if (name === 'u_phone' && value) {
       // Получаем маску телефона из констант
-      const phoneMask = (window as any).data?.site_constants?.def_maska_tel?.value;
+      const phoneMask = (window as any).data?.site_constants?.def_maska_tel?.value
       if (phoneMask) {
         // Извлекаем префикс из маски
-        const prefixMatch = phoneMask.match(/^\+?(\d+)/);
-        const prefix = prefixMatch ? prefixMatch[1] : '';
-        
+        const prefixMatch = phoneMask.match(/^\+?(\d+)/)
+        const prefix = prefixMatch ? prefixMatch[1] : ''
+
         // Проверяем, начинается ли номер с правильного префикса
-        const digits = value.replace(/\D/g, '');
-        const prefixWithoutPlus = prefix.replace('+', '');
-        
+        const digits = value.replace(/\D/g, '')
+        const prefixWithoutPlus = prefix.replace('+', '')
+
         // Если номер не пустой и не начинается с правильного префикса, устанавливаем ошибку
         if (digits.length > 0 && !digits.startsWith(prefixWithoutPlus)) {
           setFormErrors({
             ...formErrors,
-            [name]: t(TRANSLATION.PHONE_PATTERN_ERROR) + ' ' + phoneMask
-          });
+            [name]: t(TRANSLATION.PHONE_PATTERN_ERROR) + ' ' + phoneMask,
+          })
         } else {
           // Если префикс правильный или номер пустой, удаляем ошибку
-          const newErrors = { ...formErrors };
-          delete newErrors[name];
-          setFormErrors(newErrors);
+          const newErrors = { ...formErrors }
+          delete newErrors[name]
+          setFormErrors(newErrors)
         }
       }
     }
@@ -262,24 +316,24 @@ const JSONForm: React.FC<IProps> = ({
     },
   }), [isValid, state])
 
-  const handleSubmit = useCallback((e: any) => {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const submitValues: any = {}
-    for (let [key, value] of Object.entries(values)) {
-      const path = key.split('.')
-      let tmpObj = submitValues
-      path.forEach((str, i) => {
-        if (i === path.length - 1) {
-          tmpObj[str] = value
-        } else if (!tmpObj[str]) {
-          tmpObj[str] = {}
-        }
-        tmpObj = tmpObj[str]
-      })
-    }
-    onSubmit && onSubmit(submitValues)
-  }, [values])
-  console.log(formErrors,form)
+    if (!onSubmit)
+      return
+    const submitValues = { ...values }
+    for (const field of form)
+      if (
+        !(field.submit ?? true) ||
+        ([
+          'button', 'submit',
+        ] as const).includes(getCalculation(field.type, values, variables))
+      ) {
+        const key: string = getCalculation(field.name, values, variables)
+        delete submitValues[key]
+      }
+    onSubmit(makeNested(submitValues))
+  }
+
   return configStatus === EStatuses.Success && (
     <div style={{ position: 'relative', zIndex: 500 }}>
       <form onSubmit={handleSubmit}>
