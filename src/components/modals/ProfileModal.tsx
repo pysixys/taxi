@@ -101,7 +101,7 @@ const mapDispatchToProps = {
   setMessageModal: modalsActionCreators.setMessageModal,
   updateUser: userActionCreators.initUser,
   getUserCars: carsActionCreators.getUserCars,
-  editCar: carsActionCreators.editCar,
+  editCar: carsActionCreators.edit,
   setLanguage: configActionCreators.setLanguage,
 }
 
@@ -147,7 +147,7 @@ function ProfileModal({
     Promise.all(driverLicenseImgs.map(getImageFile)).then(setDriverLicensePhoto)
   }, [isOpen])
 
-  type TFormValues = Omit<IUser, 'u_details' | 'u_car'> & {
+  type TFormValues = Omit<IUser, 'u_details'> & {
     u_details: Omit<IUser['u_details'],
       'passport_photo' |
       'driver_license_photo'

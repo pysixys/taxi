@@ -4,12 +4,13 @@ import { TAction } from '../../types'
 import { EUserRoles, EOrderTypes, IOrder } from '../../types/types'
 import SITE_CONSTANTS from '../../siteConstants'
 import { getCurrentPosition } from '../../tools/utils'
-import { select, call, concurrency } from '../../tools/sagaUtils'
+import { select, call, putResolve, concurrency } from '../../tools/sagaUtils'
 import { updateCompletedOrderDuration } from '../../tools/order'
 import * as API from '../../API'
 import { IRootState } from '..'
 import { user } from '../user/selectors'
-import { getUserCars } from '../cars/actionCreators'
+import { getUserCars, drive as driveCar } from '../cars/actionCreators'
+import { userPrimaryCar as userPrimaryCarSelector } from '../cars/selectors'
 import { setSelectedOrder } from '../clientOrder/actionCreators'
 import { getAreasBetweenPoints } from '../areas/actionCreators'
 import { ActionTypes } from './constants'
@@ -18,23 +19,24 @@ import {
   activeOrders, readyOrders, historyOrders,
 } from './selectors'
 
-export const saga = function* () {
+export function* saga() {
+  const loadState: LoadState = { carDrivePending: false }
   yield all([
     concurrency({
       action: ActionTypes.GET_ACTIVE_ORDERS_REQUEST,
-      saga: getOrdersGroupSaga,
+      saga: getActiveOrdersSaga,
       parallelKey: 0,
       sequenceKey: {},
       leading: true,
     }, {
       action: ActionTypes.GET_READY_ORDERS_REQUEST,
-      saga: getOrdersGroupSaga,
+      saga: (action: TAction) => getReadyOrdersSaga(action, loadState),
       parallelKey: 0,
       sequenceKey: {},
       leading: true,
     }, {
       action: ActionTypes.GET_HISTORY_ORDERS_REQUEST,
-      saga: getOrdersGroupSaga,
+      saga: getHistoryOrdersSaga,
       parallelKey: 0,
       sequenceKey: {},
       leading: true,
@@ -55,86 +57,153 @@ export const saga = function* () {
   ])
 }
 
-function* getOrdersGroupSaga({ type, payload: { estimate } }: TAction) {
-  const {
-    successAction, failAction, geolocationSuccessAction, geolocationFailAction,
-    prevSelector, ordersType,
-  } = ({
-    [ActionTypes.GET_ACTIVE_ORDERS_REQUEST]: {
-      successAction: ActionTypes.GET_ACTIVE_ORDERS_SUCCESS,
-      failAction: ActionTypes.GET_ACTIVE_ORDERS_FAIL,
-      geolocationSuccessAction:
-        ActionTypes.GET_ACTIVE_ORDERS_TAKER_GEOLOCATION_SUCCESS,
-      geolocationFailAction:
-        ActionTypes.GET_ACTIVE_ORDERS_TAKER_GEOLOCATION_FAIL,
-      prevSelector: activeOrders,
-      ordersType: EOrderTypes.Active,
-    },
-    [ActionTypes.GET_READY_ORDERS_REQUEST]: {
-      successAction: ActionTypes.GET_READY_ORDERS_SUCCESS,
-      failAction: ActionTypes.GET_READY_ORDERS_FAIL,
-      geolocationSuccessAction:
-        ActionTypes.GET_READY_ORDERS_TAKER_GEOLOCATION_SUCCESS,
-      geolocationFailAction:
-        ActionTypes.GET_READY_ORDERS_TAKER_GEOLOCATION_FAIL,
-      prevSelector: readyOrders,
-      ordersType: EOrderTypes.Ready,
-    },
-    [ActionTypes.GET_HISTORY_ORDERS_REQUEST]: {
-      successAction: ActionTypes.GET_HISTORY_ORDERS_SUCCESS,
-      failAction: ActionTypes.GET_HISTORY_ORDERS_FAIL,
-      geolocationSuccessAction:
-        ActionTypes.GET_HISTORY_ORDERS_TAKER_GEOLOCATION_SUCCESS,
-      geolocationFailAction:
-        ActionTypes.GET_HISTORY_ORDERS_TAKER_GEOLOCATION_FAIL,
-      prevSelector: historyOrders,
-      ordersType: EOrderTypes.History,
-    },
-  } as const)[type]!
+interface LoadState {
+  carDrivePending: boolean
+}
 
-  const prev = (yield* select(prevSelector)) ?? []
+function* getActiveOrdersSaga({ payload: { estimate } = {} }: TAction) {
+  const prev = (yield* select(activeOrders)) ?? []
   try {
-    let orders = yield* getOrdersSaga(ordersType)
+    const response = yield* call(API.getOrders, EOrderTypes.Active)
+    if (response.code !== '200')
+      throw response
+    let orders = response.data.booking.map(updateCompletedOrderDuration)
 
-    if (type === ActionTypes.GET_ACTIVE_ORDERS_REQUEST) {
-      orders = yield* cancelExpiredOrdersSaga(orders)
-      if (orders.length === 1)
-        yield put(setSelectedOrder(orders[0].b_id))
-      if (orders.length === 0)
-        yield put(setSelectedOrder(null))
+    orders = yield* cancelExpiredOrdersSaga(orders)
+    if (orders.length === 1)
+      yield put(setSelectedOrder(orders[0].b_id))
+    if (orders.length === 0)
+      yield put(setSelectedOrder(null))
+
+    yield put({ type: ActionTypes.GET_ACTIVE_ORDERS_SUCCESS, payload: orders })
+
+    if (estimate) {
+      try {
+        const geolocation = yield* getOrdersTakerGeolocationSaga(orders)
+        if (geolocation)
+          yield put({
+            type: ActionTypes.GET_ACTIVE_ORDERS_TAKER_GEOLOCATION_SUCCESS,
+            payload: geolocation,
+          })
+      } catch (error) {
+        yield put({
+          type: ActionTypes.GET_ACTIVE_ORDERS_TAKER_GEOLOCATION_FAIL,
+          payload: error,
+        })
+      }
     }
-    yield put({ type: successAction, payload: orders })
 
-    try {
-      const geolocation = estimate ?
-        yield* getOrdersTakerGeolocationSaga(orders) :
-        undefined
-      if (geolocation)
-        yield put({ type: geolocationSuccessAction, payload: geolocation })
-    } catch (error) {
-      yield put({ type: geolocationFailAction, payload: error })
-    }
-
-    if (type === ActionTypes.GET_ACTIVE_ORDERS_REQUEST)
-      yield fork(function*() {
-        while (orders.length > 0) {
-          const [keptOrders] = yield race([
-            call(cancelOrdersOnNextExpireSaga, orders),
-            take(ActionTypes.GET_ACTIVE_ORDERS_REQUEST),
-          ])
-          if (!keptOrders)
-            break
-          orders = keptOrders
-          yield put({ type: successAction, payload: orders })
-        }
-      })
+    yield fork(function*() {
+      while (orders.length > 0) {
+        const [keptOrders] = yield race([
+          call(cancelOrdersOnNextExpireSaga, orders),
+          take(ActionTypes.GET_ACTIVE_ORDERS_REQUEST),
+        ])
+        if (!keptOrders)
+          break
+        orders = keptOrders
+        yield put({
+          type: ActionTypes.GET_ACTIVE_ORDERS_SUCCESS,
+          payload: orders,
+        })
+      }
+    })
 
     yield* afterOrdersChangeSaga(prev, orders)
   }
 
   catch (error) {
     console.error(error)
-    yield put({ type: failAction, payload: error })
+    yield put({ type: ActionTypes.GET_ACTIVE_ORDERS_FAIL, payload: error })
+  }
+}
+
+function* getReadyOrdersSaga(
+  { payload: { estimate } = {} }: TAction,
+  loadState: LoadState,
+) {
+  if (
+    loadState.carDrivePending ||
+    (yield* select(userPrimaryCarSelector)) === null
+  ) return
+
+  const prev = (yield* select(readyOrders)) ?? []
+  try {
+    const response = yield* call(API.getOrders, EOrderTypes.Ready)
+
+    if (
+      response.code === '404' &&
+      response.data.detail === 'used_car_not_found'
+    ) {
+      yield fork(function*() {
+        const success = yield* drivePrimaryCarSaga(loadState)
+        if (success)
+          yield put({ type: ActionTypes.GET_READY_ORDERS_REQUEST })
+      })
+      return
+    }
+
+    if (response.code !== '200')
+      throw response
+    const orders = response.data.booking.map(updateCompletedOrderDuration)
+    yield put({ type: ActionTypes.GET_READY_ORDERS_SUCCESS, payload: orders })
+
+    if (estimate) {
+      try {
+        const geolocation = yield* getOrdersTakerGeolocationSaga(orders)
+        if (geolocation)
+          yield put({
+            type: ActionTypes.GET_READY_ORDERS_TAKER_GEOLOCATION_SUCCESS,
+            payload: geolocation,
+          })
+      } catch (error) {
+        yield put({
+          type: ActionTypes.GET_READY_ORDERS_TAKER_GEOLOCATION_FAIL,
+          payload: error,
+        })
+      }
+    }
+
+    yield* afterOrdersChangeSaga(prev, orders)
+  }
+
+  catch (error) {
+    console.error(error)
+    yield put({ type: ActionTypes.GET_READY_ORDERS_FAIL, payload: error })
+  }
+}
+
+function* getHistoryOrdersSaga({ payload: { estimate } = {} }: TAction) {
+  const prev = (yield* select(historyOrders)) ?? []
+  try {
+    const response = yield* call(API.getOrders, EOrderTypes.Active)
+    if (response.code !== '200')
+      throw response
+    const orders = response.data.booking.map(updateCompletedOrderDuration)
+    yield put({ type: ActionTypes.GET_HISTORY_ORDERS_SUCCESS, payload: orders })
+
+    if (estimate) {
+      try {
+        const geolocation = yield* getOrdersTakerGeolocationSaga(orders)
+        if (geolocation)
+          yield put({
+            type: ActionTypes.GET_HISTORY_ORDERS_TAKER_GEOLOCATION_SUCCESS,
+            payload: geolocation,
+          })
+      } catch (error) {
+        yield put({
+          type: ActionTypes.GET_HISTORY_ORDERS_TAKER_GEOLOCATION_FAIL,
+          payload: error,
+        })
+      }
+    }
+
+    yield* afterOrdersChangeSaga(prev, orders)
+  }
+
+  catch (error) {
+    console.error(error)
+    yield put({ type: ActionTypes.GET_HISTORY_ORDERS_FAIL, payload: error })
   }
 }
 
@@ -142,16 +211,6 @@ function* getOrderByIdSaga({ payload }: TAction) {
   if (yield* select((state: IRootState) =>
     !moduleSelector(state).orders.get(payload)?.mutations,
   )) yield* getOrderSaga(payload)
-}
-
-function* getOrdersSaga(
-  orderType: EOrderTypes,
-): Generator<any, IOrder[], any> {
-  const userID = (yield* select(user))?.u_id
-  if (!userID) throw new Error()
-
-  const orders = yield* call(API.getOrders, orderType)
-  return orders.map(updateCompletedOrderDuration)
 }
 
 function* getOrderSaga(id: IOrder['b_id']) {
@@ -246,4 +305,28 @@ function* getOrdersTakerGeolocationSaga(
 
     return geolocation
   }
+}
+
+function* drivePrimaryCarSaga(loadState: LoadState) {
+  loadState.carDrivePending = true
+  try {
+    let car = yield* select(userPrimaryCarSelector)
+    if (car === undefined)
+      yield put(getUserCars())
+    while (car === undefined) {
+      yield take()
+      car = yield* select(userPrimaryCarSelector)
+    }
+    if (car) {
+      try {
+        const response = yield* putResolve(driveCar(car))
+        return response.code === '200'
+      } catch (error) {
+        console.error(error)
+      }
+    }
+  } finally {
+    loadState.carDrivePending = false
+  }
+  return false
 }

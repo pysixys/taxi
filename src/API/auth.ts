@@ -27,19 +27,7 @@ const _register = (
           error: res.message,
         }
       }
-      if (data.u_role !== EUserRoles.Driver) return res.data
-      const carFormData = new FormData()
-      addToFormData(carFormData, {
-        token: res.data.token,
-        u_hash: res.data.u_hash,
-        data: JSON.stringify(data.u_car),
-      })
-      return axios.post(`${Config.API_URL}/user/${res.data.u_id}/car`, carFormData).then(carRes => {
-        return {
-          ...res.data,
-          car: carRes.data,
-        }
-      })
+      return res.data
     })
 }
 /**

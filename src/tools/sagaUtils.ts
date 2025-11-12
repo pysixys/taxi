@@ -1,8 +1,8 @@
-import { Task, channel } from 'redux-saga'
+import { Action, Task, channel } from 'redux-saga'
 import {
-  Tail, SelectEffect, CallEffect, SagaReturnType, ActionPattern,
-  select as sagaSelect,
-  call as sagaCall,
+  Tail, SagaReturnType, ActionPattern, ThunkAction,
+  SelectEffect, CallEffect, PutEffect,
+  select as sagaSelect, call as sagaCall, putResolve as sagaPutResolve,
   race, take, fork, put, cancel,
 } from 'redux-saga/effects'
 import { firstItem } from './utils'
@@ -19,6 +19,20 @@ export function* call<Fn extends(...args: any[]) => any>(
   ...args: Parameters<Fn>
 ): Generator<CallEffect<SagaReturnType<Fn>>, SagaReturnType<Fn>> {
   return yield sagaCall(fn, ...args)
+}
+
+export function* putResolve<
+  ReturnType = any,
+  State = any,
+  ExtraThunkArg = any,
+  BasicAction extends Action = Action
+>(
+  action: ThunkAction<ReturnType, State, ExtraThunkArg, BasicAction>,
+): Generator<
+  PutEffect<BasicAction>,
+  SagaReturnType<ThunkAction<ReturnType, State, ExtraThunkArg, BasicAction>>
+> {
+  return yield sagaPutResolve(action)
 }
 
 interface IConcurrentSaga<TAction> {

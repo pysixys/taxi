@@ -19,6 +19,7 @@ const configureStore = () => {
     composeEnhancers(
       applyMiddleware(thunk),
       applyMiddleware(sagaMiddleware),
+      applyMiddleware(thunk),
     ),
   )
 

@@ -58,7 +58,7 @@ interface IFormValues {
   driver_license_photo?: any
   license_photo?: any
   car_name: string
-  car_model: string | null
+  car_model: string
   seats: string
   car_number: string
   car_color: string
@@ -114,8 +114,12 @@ const RegisterForm: React.FC<IProps> = ({
   const [workType, setWorkType] = useState<EWorkTypes | null>(null)
   const [isRegistrationAlertVisible, toggleRegistrationAlertVisibility] = useVisibility(false)
   const [isWhatsappAlertVisible, toggleWhatsappAlertVisibility] = useVisibility(false)
-  const [shouldSendToWhatsapp, setShouldSendToWhatsapp] = useState(false)
-  const [filesMap, setFilesMap] = useState<TFilesMap>({ passport_photo: [], driver_license_photo: [], license_photo: [] })
+  // const [shouldSendToWhatsapp, setShouldSendToWhatsapp] = useState(false)
+  const [filesMap, setFilesMap] = useState<TFilesMap>({
+    passport_photo: [],
+    driver_license_photo: [],
+    license_photo: [],
+  })
 
   const [data, setData] = useState<{
     car_models: any
@@ -272,7 +276,7 @@ const RegisterForm: React.FC<IProps> = ({
       },
       u_car: {
         cm_id: data.car_model,
-        seats: data.seats,
+        seats: +data.seats,
         registration_plate: data.car_number,
         color: data.car_color,
         photo: '',
@@ -322,17 +326,19 @@ const RegisterForm: React.FC<IProps> = ({
   if (isDriver && requireFeildsMap.license_photo && !filesMap.license_photo) isValidFrom = false
   return (
     <form className="login-form sign-up-subform" onSubmit={handleSubmit(onSubmit)}>
-      {isDriver && <Input
-        inputProps={{
-          onChange: (e: any) => setWorkType(Number(e.target.value)),
-          value: String(workType),
-        }}
-        inputType={EInputTypes.Select}
-        options={[
-          { label: t(TRANSLATION.SELF_EMPLOYED), value: EWorkTypes.Self },
-          { label: t(TRANSLATION.COMPANY), value: EWorkTypes.Company },
-        ]}
-      />}
+      {isDriver &&
+        <Input
+          inputProps={{
+            onChange: (e: any) => setWorkType(Number(e.target.value)),
+            value: String(workType),
+          }}
+          inputType={EInputTypes.Select}
+          options={[
+            { label: t(TRANSLATION.SELF_EMPLOYED), value: EWorkTypes.Self },
+            { label: t(TRANSLATION.COMPANY), value: EWorkTypes.Company },
+          ]}
+        />
+      }
 
       <Input
         inputProps={{

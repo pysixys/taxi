@@ -10,6 +10,7 @@ import {
   IOrder,
   IUser,
 } from '../types/types'
+import { IResponse } from '../types/api'
 import { cloneFormData } from '../tools/utils'
 import { convertOrder, reverseConvertOrder } from '../tools/convert'
 import {
@@ -106,10 +107,24 @@ const _cancelDrive = (
 }
 export const cancelDrive = apiMethod<typeof _cancelDrive>(_cancelDrive)
 
-async function _getOrders(
+export const getOrders: <TType extends EOrderTypes>(
+  type?: TType,
+  filter?: TType extends EOrderTypes.Ready ? {
+    carClasses?: boolean
+    locationClasses?: boolean
+  } : undefined
+) => Promise<IResponse<'200', {
+  booking: IOrder[]
+}> | IResponse<'404', {
+  detail?: 'used_car_not_found'
+}>> = apiMethod(async(
   { formData }: IApiMethodArguments,
   type: EOrderTypes = EOrderTypes.Active,
-): Promise<IOrder[]> {
+  filter: {
+    carClasses?: boolean
+    locationClasses?: boolean
+  } = {},
+) => {
   const userID = userSelectors.user(store.getState())?.u_id
 
   addToFormData(formData, {
@@ -119,10 +134,11 @@ async function _getOrders(
   const hiddenOrders = JSON.parse(localStorage.getItem('hiddenOrders') || '{}')
   const userHiddenOrders = hiddenOrders && userID && hiddenOrders[userID]
 
-  let URLAdditionalPath
+  const queryParams: string[] = []
+  let URLAdditionalPath = ''
   switch (type) {
     case EOrderTypes.Active:
-      URLAdditionalPath = '?fields=00000000u1'
+      queryParams.push('fields=00000000u1')
       break
     case EOrderTypes.Ready:
       URLAdditionalPath = '/now'
@@ -133,28 +149,44 @@ async function _getOrders(
     default:
       return Promise.reject()
   }
+  if (filter.carClasses)
+    queryParams.push('filter=b_car_classes')
+  if (filter.locationClasses)
+    queryParams.push('filter=b_location_classes')
 
-  const response = await axios.post(
-    `${Config.API_URL}/drive${URLAdditionalPath}`,
+  const { data: response } = await axios.post(
+    `${Config.API_URL}/drive${URLAdditionalPath}` +
+    (queryParams.length > 0 ? `?${queryParams.join('&')}` : ''),
     formData,
   )
-  const data = response.data.data
+  if (response.code === '404' && [
+    'used car not found',
+    'empty driver location classes',
+  ].includes(response.message))
+    return { ...response, data: { detail: 'used_car_not_found' } }
+  if (response.code !== '200')
+    return response
 
   if (type === EOrderTypes.Active)
-    for (const item of data.booking)
-      item.user = data.user[item.u_id]
+    for (const item of response.data.booking)
+      item.user = response.data.user[item.u_id]
 
-  return data.booking
-    ?.filter((item: IOrder) =>
-      !(userHiddenOrders && userHiddenOrders.includes(item.b_id)),
-    )
-    .map((item: any) => convertOrder(item))
-    .filter((item: IOrder) => item.b_confirm_state)
-    .sort((a: IOrder, b: IOrder) =>
-      a.b_start_datetime < b.b_start_datetime ? 1 : -1,
-    )
-}
-export const getOrders = apiMethod<typeof _getOrders>(_getOrders)
+  return {
+    ...response,
+    data: {
+      ...response.data,
+      booking: response.data.booking
+        ?.filter((item: IOrder) =>
+          !(userHiddenOrders && userHiddenOrders.includes(item.b_id)),
+        )
+        .map((item: any) => convertOrder(item))
+        .filter((item: IOrder) => item.b_confirm_state)
+        .sort((a: IOrder, b: IOrder) =>
+          a.b_start_datetime < b.b_start_datetime ? 1 : -1,
+        ),
+    },
+  }
+})
 
 const _getOrder = (
   { formData }: IApiMethodArguments,

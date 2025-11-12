@@ -1,7 +1,10 @@
+import * as API from '../../API'
+import { createUserCar } from '../cars/actionCreators'
 import { ActionTypes, IUserState } from './constants'
-import * as API from './../../API'
 
-export const register = (payload: Parameters<typeof API.register>[0]) => {
+export const register = (payload: Parameters<typeof API.register>[0] & {
+  u_car?: Parameters<typeof createUserCar>[0]
+}) => {
   return { type: ActionTypes.REGISTER_REQUEST, payload }
 }
 

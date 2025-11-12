@@ -48,6 +48,7 @@ export {
   editCar,
   getUserCars,
   getUserCar,
+  driveCar,
   getUserDrivenCar,
   getCar,
   getCars,

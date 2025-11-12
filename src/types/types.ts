@@ -481,7 +481,7 @@ export interface ICar {
   /** json данные для дальнейшей обработки */
   details?: any,
   /** Идентификатор класса машины */
-  cc_id: number
+  cc_id: ICarClass['id']
 }
 
 export enum EUserRoles {
@@ -605,8 +605,6 @@ export interface IUser {
   u_choosen?: number
   ref_code?: string
   role: EUserRoles
-  // Машин пользователя (если он является водителем)
-  u_car: any
   token?: string
   u_hash?: string
   uploads?: any[]

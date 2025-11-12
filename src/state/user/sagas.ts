@@ -1,17 +1,20 @@
-import { ActionTypes as ConfigActionTypes } from './../config/constants'
 import { all, takeEvery, put } from 'redux-saga/effects'
-import { setLoginModal, setMessageModal, setRefCodeModal } from '../modals/actionCreators'
-import { ActionTypes } from './constants'
-import { uploadRegisterFiles, uploadFiles } from './helpers'
-import { call } from '../../tools/sagaUtils'
-import { t, TRANSLATION } from '../../localization'
-import * as API from './../../API'
 import { TAction } from '../../types'
 import { EStatuses, EUserRoles, ITokens } from '../../types/types'
-import { setUser } from './actionCreators'
-import { clearOrders } from '../orders/actionCreators'
-import SITE_CONSTANTS from '../../siteConstants'
 import { setCookie, getCookie } from '../../utils/cookies'
+import { call, putResolve } from '../../tools/sagaUtils'
+import SITE_CONSTANTS from '../../siteConstants'
+import * as API from '../../API'
+import { t, TRANSLATION } from '../../localization'
+import { ActionTypes as ConfigActionTypes } from '../config/constants'
+import { clearOrders } from '../orders/actionCreators'
+import { createUserCar } from '../cars/actionCreators'
+import {
+  setLoginModal, setMessageModal, setRefCodeModal,
+} from '../modals/actionCreators'
+import { uploadRegisterFiles, uploadFiles } from './helpers'
+import { ActionTypes } from './constants'
+import { setUser } from './actionCreators'
 
 export const saga = function* () {
   yield all([
@@ -106,16 +109,16 @@ function* googleLoginSaga(data: TAction) {
 }
 
 function* registerSaga(data: TAction) {
-  console.log('registerSaga', data)
   yield put({ type: ActionTypes.REGISTER_START })
   try {
-    const { uploads, u_details, ...payload } = data.payload
-    let response: any = yield* call(API.register, { ...payload, st: 1 })
-    console.log(response)
-    if(response.error) {
+    const { uploads, u_details, u_car, ...payload } = data.payload
+
+    const response: any = yield* call(API.register, { ...payload, st: 1 })
+    if (response.error) {
       yield put({ type: ActionTypes.REGISTER_FAIL, payload: response.error })
       throw new Error(response.error)
     }
+
     const tokens = {
       token: response.token,
       u_hash: response.u_hash,
@@ -136,7 +139,11 @@ function* registerSaga(data: TAction) {
     yield* call(initUserSaga)
     yield put(setLoginModal(false))
 
-    const isCarError = response?.car?.status === 'error'
+    const carResponse = u_car && payload.u_role === EUserRoles.Driver ?
+      (yield* putResolve(createUserCar(u_car))) :
+      null
+
+    const isCarError = carResponse?.status === 'error'
     const messageStatus = isCarError ? EStatuses.Warning : EStatuses.Success
     const messageText = isCarError ? TRANSLATION.REGISTER_CAR_FAIL : TRANSLATION.SUCCESS_REGISTER_MESSAGE
     yield put(setMessageModal({
@@ -145,7 +152,7 @@ function* registerSaga(data: TAction) {
       message: t(messageText),
     }))
   } catch (error) {
-    console.error('registerSaga error', error)
+    console.error(error)
     yield put({ type: ActionTypes.REGISTER_FAIL, payload: error })
   }
 }

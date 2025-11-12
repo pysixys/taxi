@@ -11,10 +11,16 @@ export function* saga() {
   const loadState: LoadState = {}
   yield all([
     concurrency({
-      action: ActionTypes.GET_USER_CARS_REQUEST,
+      action: [
+        ActionTypes.GET_USER_CARS_REQUEST,
+        ActionTypes.CREATE_USER_CAR_SUCCESS,
+      ],
       saga: (action: TAction) => getUserCarsSaga(action, loadState),
       parallelKey: 0,
-      leading: true,
+      leading: ({ type }: TAction) =>
+        type === ActionTypes.GET_USER_CARS_REQUEST || undefined,
+      latest: ({ type }: TAction) =>
+        type === ActionTypes.CREATE_USER_CAR_SUCCESS || undefined,
     }, {
       action: ActionTypes.END_MUTATION,
       saga: getCarSaga,
@@ -44,9 +50,12 @@ function* getCarSaga({ type, payload }: TAction) {
   }
 }
 
-function* getUserCarsSaga(_: TAction, loadState: LoadState) {
+function* getUserCarsSaga({ type }: TAction, loadState: LoadState) {
   const userId = (yield* select(userSelector))?.u_id
-  if (!userId || userId === loadState.lastUserId)
+  if (
+    type === ActionTypes.GET_USER_CARS_REQUEST &&
+    (!userId || userId === loadState.lastUserId)
+  )
     return
   try {
     const cars = yield* call(API.getUserCars)

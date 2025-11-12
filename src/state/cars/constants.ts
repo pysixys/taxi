@@ -16,6 +16,7 @@ export const ActionTypes = {
   GET_USER_CARS_REQUEST: `${prefix}/GET_USER_CARS_REQUEST`,
   GET_USER_CARS_SUCCESS: `${prefix}/GET_USER_CARS_SUCCESS`,
   GET_USER_CARS_FAIL: `${prefix}/GET_USER_CARS_FAIL`,
+  CREATE_USER_CAR_SUCCESS: `${prefix}/CREATE_USER_CAR_SUCCESS`,
 }
 
 export interface ICarState {
