@@ -1,23 +1,23 @@
 import React, { useState } from 'react'
 import { connect, ConnectedProps } from 'react-redux'
 import { matchPath, useLocation, useNavigate } from 'react-router-dom'
-import './styles.scss'
-import { t, TRANSLATION } from '../../localization'
-import { useInterval } from '../../tools/hooks'
+import cn from 'classnames'
 import moment from 'moment'
-import images from '../../constants/images'
-import { IRootState } from '../../state'
 import { EBookingDriverState, EUserRoles, ILanguage } from '../../types/types'
+import config from '../../config'
+import images from '../../constants/images'
+import SITE_CONSTANTS from '../../siteConstants'
+import { useInterval } from '../../tools/hooks'
+import { setCookie } from '../../utils/cookies'
+import { IRootState } from '../../state'
 import { configSelectors, configActionCreators } from '../../state/config'
 import { modalsActionCreators } from '../../state/modals'
 import { clientOrderSelectors } from '../../state/clientOrder'
 import { ordersSelectors } from '../../state/orders'
 import { userSelectors } from '../../state/user'
-import SITE_CONSTANTS from '../../siteConstants'
-import cn from 'classnames'
+import { t, TRANSLATION } from '../../localization'
 import { Burger } from '../Burger/Burger'
-import { setCookie } from '../../utils/cookies'
-import config from '../../config'
+import './styles.scss'
 
 const FLAGS_IMAGES: Record<string, string> = {
   ru: images.flagRu,
@@ -52,7 +52,7 @@ interface IProps extends ConnectedProps<typeof connector> {
 
 }
 
-const Header: React.FC<IProps> = ({
+function Header({
   user,
   language,
   activeOrders,
@@ -60,7 +60,7 @@ const Header: React.FC<IProps> = ({
   setLanguage,
   setLoginModal,
   setProfileModal,
-}) => {
+}: IProps) {
   const [languagesOpened, setLanguagesOpened] = useState(false)
   const [seconds, setSeconds] = useState(0)
   const [menuOpened, setMenuOpened] = useState(false)
@@ -68,15 +68,12 @@ const Header: React.FC<IProps> = ({
   const location = useLocation()
   const navigate = useNavigate()
 
-  // const duration = moment.duration(seconds * 1000)
-
   const clientOrder = activeOrders?.find(item => item.b_id === selectedOrder)
   const driver = clientOrder?.drivers?.find(item =>
     item.c_state > EBookingDriverState.Canceled || item.c_state === EBookingDriverState.Considering,
   )
 
   const menuItems: IMenuItem[] = []
-  //(user?.u_role === EUserRoles.Driver) &&
   menuItems.push({
     label: t('profile'),
     action: () => setProfileModal({ isOpen: true }),
@@ -104,38 +101,10 @@ const Header: React.FC<IProps> = ({
     navigate(-1)
   }
 
-  // const toggleLanguagesOpened = () => setLanguagesOpened(prev => !prev)
   const toggleMenuOpened = () => setMenuOpened(prev => !prev)
 
   const detailedOrderID = matchPath({ path: '/driver-order/:id' }, location.pathname)?.params.id
 
-  // let time = ''
-  // if (duration.hours() >= 10)
-  //   time = `${duration.hours()} ${t(TRANSLATION.HOUR, { toLower: true })}`
-  // else if (duration.minutes() >= 10)
-  //   time = `${duration.minutes()} ${t(TRANSLATION.MINUTES, { toLower: true })}`
-  // else
-  //   time = `${duration.seconds()} ${t(TRANSLATION.SECONDS, { toLower: true })}`
-
-  // const isNotFirstAttempt = (clientOrder?.b_attempts?.length || 0) > 1
-  // const heading = seconds > 0 ?
-  //   `№${selectedOrder} ${
-  //     isNotFirstAttempt ? t(TRANSLATION.REPEATED) : ''
-  //   } ${
-  //     t(TRANSLATION.SEARCH, { toLower: isNotFirstAttempt })
-  //   }: ${time}` :
-  //   location.pathname === '/driver-order' ?
-  //     `${t(TRANSLATION.ORDERS)}` :
-  //     detailedOrderID ?
-  //       `${t(TRANSLATION.ORDER)} №${detailedOrderID}` :
-  //       `${t(TRANSLATION.CREATE_ORDER)}`
-
-  // let avatar = images.avatar
-  // let avatarSize = '30px'
-  // if (user) {
-  //     avatar = user.u_photo || images.activeAvatar
-  //     avatarSize = user.u_photo ? 'cover' : '30px'
-  // }
   let avatar = images.noUserAvatar
   let avatarSize = '24px'
   if (user) {
@@ -153,28 +122,14 @@ const Header: React.FC<IProps> = ({
   }
 
   return (
-    <header
-      className='header'
-      //   style={{ background: gradient() }} изменить на новый цвет из палитры
-      style={{ background: '#FFFFFF' }}
-    >
+    <header className='header'>
       <div className="burger-wrapper">
         <div className="column">
-          {/* <span className='api'>1</span> */}
           {
             detailedOrderID ?
               <img src={images.returnIcon} className="menu-icon" alt={t(TRANSLATION.RETURN)} onClick={onReturn} /> :
               (
                 <div className="menu__wrapper">
-                  {/* <HamburgerButton
-                  open={menuOpened}
-                  onClick={() => toggleMenuOpened()}
-                  width={25}
-                  height={16}
-                  strokeWidth={2}
-                  color='white'
-                  animationDuration={0.5}
-                /> */}
                   <Burger onClick={toggleMenuOpened} isOpen={menuOpened} />
                   <ul
                     className={cn('menu__list', {
@@ -230,36 +185,7 @@ const Header: React.FC<IProps> = ({
           <img height={24} src={images.handUp} alt='' />
         </button>}
       </div>
-      {/* <h2>{heading}</h2> */}
       <div className='header-logo'><img src={images.logo} alt="" /></div>
-      {/* <div className="column">
-                <div
-                    onClick={() => toggleLanguagesOpened()}
-                    className='langs-container'
-                    style={{ background: SITE_CONSTANTS.PALETTE.primary.dark }}
-                >
-                    <img src={language.logo} alt={language.native} />
-                    <img
-                        src={images.arrowDown}
-                        style={{ transform: `rotate(${languagesOpened ? 180 : 0}deg)` }}
-                        alt={t(TRANSLATION.ARROW)}
-                    />
-
-                    <span
-                        className="languages"
-                        style={{
-                          background: SITE_CONSTANTS.PALETTE.primary.dark,
-                          display: languagesOpened ? 'flex' : 'none',
-                        }}
-                    >
-                        {
-                            SITE_CONSTANTS.LANGUAGES.map(item => (
-                                <img src={item.logo} onClick={e => setLanguage(item)} alt={item.native} key={item.id} />
-                            ))
-                        }
-                    </span>
-                </div>
-            </div> */}
       <div className='header-avatar-wrapper'>
         <span className='header-user-name'>{user?.u_city ? `${( (window as any).data.cities[user?.u_city][ language.iso ??  (window as any).data.langs[(window as any).default_lang].iso ])},` : ''}</span>
         <span className='header-user-lng'>{language.iso.toUpperCase()}</span>
