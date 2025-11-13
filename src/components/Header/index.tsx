@@ -64,6 +64,8 @@ function Header({
   const [languagesOpened, setLanguagesOpened] = useState(false)
   const [seconds, setSeconds] = useState(0)
   const [menuOpened, setMenuOpened] = useState(false)
+  if (!menuOpened && languagesOpened)
+    setLanguagesOpened(false)
 
   const location = useLocation()
   const navigate = useNavigate()
@@ -76,15 +78,17 @@ function Header({
   const menuItems: IMenuItem[] = []
   menuItems.push({
     label: t('profile'),
-    action: () => setProfileModal({ isOpen: true }),
+    action: () => {
+      setProfileModal({ isOpen: true })
+      setMenuOpened(false)
+    },
   })
 
   menuItems.push({
     label: t('language'),
     type: 'language',
     action: () => {
-      setMenuOpened(languagesOpened ? false : true)
-      setLanguagesOpened(!languagesOpened)
+      setLanguagesOpened(prev => !prev)
     },
   })
 
@@ -101,7 +105,9 @@ function Header({
     navigate(-1)
   }
 
-  const toggleMenuOpened = () => setMenuOpened(prev => !prev)
+  const toggleMenuOpened = () => {
+    setMenuOpened(prev => !prev)
+  }
 
   const detailedOrderID = matchPath({ path: '/driver-order/:id' }, location.pathname)?.params.id
 
@@ -143,7 +149,7 @@ function Header({
                           onClick={() =>
                             item.href ?
                               navigate(item.href) :
-                              item.action && (() => { setMenuOpened(false); item.action(index) })()
+                              item.action?.(index)
                           }
                           className="menu__button"
                         >
