@@ -49,7 +49,7 @@ const mapDispatchToProps = {
 const connector = connect(mapStateToProps, mapDispatchToProps)
 
 interface IProps extends ConnectedProps<typeof connector> {
-
+  className?: string
 }
 
 function Header({
@@ -60,6 +60,7 @@ function Header({
   setLanguage,
   setLoginModal,
   setProfileModal,
+  className,
 }: IProps) {
   const [languagesOpened, setLanguagesOpened] = useState(false)
   const [seconds, setSeconds] = useState(0)
@@ -128,7 +129,7 @@ function Header({
   }
 
   return (
-    <header className='header'>
+    <header className={cn('header', className)}>
       <div className="burger-wrapper">
         <div className="column">
           {

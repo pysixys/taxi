@@ -19,8 +19,8 @@ function Layout({
 }: React.PropsWithChildren<IProps>) {
   return (
     <main className="layout">
-      <Header key={configStatus} />
-      {children}
+      <Header key={configStatus} className="layout__header" />
+      <div className="layout__content">{children}</div>
     </main>
   )
 }
