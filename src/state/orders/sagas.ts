@@ -1,4 +1,4 @@
-import { all, race, fork, take, put } from 'redux-saga/effects'
+import { all, race, fork, take, put, delay } from 'redux-saga/effects'
 import moment from 'moment'
 import { TAction } from '../../types'
 import { EUserRoles, EOrderTypes, IOrder } from '../../types/types'
@@ -248,7 +248,7 @@ function* cancelOrdersOnNextExpireSaga(orders: IOrder[]) {
   , Infinity) * 1000 - +moment()
   if (nextCancel === Infinity)
     return null
-  yield call(() => new Promise(resolve => setTimeout(resolve, nextCancel)))
+  yield delay(nextCancel)
   return yield* cancelExpiredOrdersSaga(orders)
 }
 
