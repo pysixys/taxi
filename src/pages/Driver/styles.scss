@@ -118,14 +118,14 @@
   }
 }
 
-//Стиль для стрелки(фиксируем размер и делаем pointer-events: none, чтобы клики шли на Marker)
+// Стиль для стрелки (фиксируем размер и делаем pointer-events: none, чтобы клики шли на Marker)
 .order-marker > img,
-  .driver-arrow-divicon img {
-    display: block !important;
-    width: 40px !important;   /* match iconSize */
-    height: auto !important;
-    pointer-events: none;
-  }
+.driver-arrow-divicon img {
+  display: block !important;
+  width: 40px !important; /* match iconSize */
+  height: auto !important;
+  pointer-events: none;
+}
 
 .driver-order-map-mode {
   position: relative;
@@ -162,7 +162,7 @@
     border: none;
   }
 
-  //inline-block чтобы сохранять элемент как единый блок размеров и не меняет центр/anchor
+  // inline-block чтобы сохранять элемент как единый блок размеров и не меняет центр/anchor
   .order-marker {
     display: inline-block;
     width: auto;
@@ -229,7 +229,7 @@
     z-index: 3;
   }
 
-  //Позиционируется absolute внутри иконки, для того чтобы не влиять на геометрию иконки(Leaflet позиционирует иконку корректно)
+  // Позиционируется absolute внутри иконки, для того чтобы не влиять на геометрию иконки(Leaflet позиционирует иконку корректно)
   .order-marker-hint {
     display: block;
     position: absolute;

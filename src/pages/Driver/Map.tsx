@@ -101,20 +101,27 @@ function DriverOrderMapModeContent({
   const map = useMap()
 
   const [lastPositions, setLastPositions] = useState<[number, number][]>([])
-  //Заместо useState используем useRef чтобы не пересоздавать иконку каждый раз
+  // Заместо useState используем useRef чтобы не пересоздавать иконку каждый раз
   const arrowIconRef = useRef(
     new L.DivIcon({
       className: 'driver-arrow-divicon',
       iconAnchor: [20, 40],
       popupAnchor: [0, -35],
       iconSize: [40, 40],
-      html: `<img id="driver-arrow" 
-      src="${images.mapArrow}" 
-      style="transition: 
-      transform 0.15s linear; 
-      display:block; width:100%; 
-      height:auto;" />`,
-    })
+      // TODO: Убрать id, сделать стили через класс
+      html: `
+        <img
+          id="driver-arrow"
+          src="${images.mapArrow}"
+          style="
+            transition: transform 0.15s linear;
+            display: block;
+            width: 100%;
+            height: auto;
+          "
+        />
+      `,
+    }),
   )
 
   useEffect(() => {
@@ -173,11 +180,10 @@ function DriverOrderMapModeContent({
                 longitude: p2[1],
               },
             )
-            //Обновляем только transform, а не пересоздаем иконку каждый раз
+            // Обновляем только transform, а не пересоздаем иконку каждый раз
             const img = document.getElementById('driver-arrow') as HTMLImageElement | null
-            if (img) {
+            if (img)
               img.style.transform = `rotate(${angle}deg)`
-            }
             return newPositions as typeof prev
           }
           return [[coords.latitude, coords.longitude]] as typeof prev
@@ -215,7 +221,7 @@ function DriverOrderMapModeContent({
       })
   }
 
-  //Мемоизируем текущую позицию маркера(чтобы React не пересоздавал <Marker> из-за новой ссылки на массив)
+  // Мемоизируем текущую позицию маркера (чтобы React не пересоздавал <Marker> из-за новой ссылки на массив)
   const currentPosition = useMemo(() => {
     if (!lastPositions || !lastPositions.length) return null
     const last = lastPositions[lastPositions.length - 1]
@@ -230,7 +236,7 @@ function DriverOrderMapModeContent({
         url={getTileServerUrl()}
       />
       {
-        //Заменяем lastPositions.map() на одиночный <Marker> с мемоизированной позицией и arrowIconRef.current
+        // Заменяем lastPositions.map() на одиночный <Marker> с мемоизированной позицией и arrowIconRef.current
         currentPosition && (
           <Marker
             position={currentPosition}
