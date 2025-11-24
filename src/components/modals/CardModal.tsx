@@ -204,7 +204,7 @@ function CardModalContent({
       console.error(error)
       setMessageModal({
         isOpen: true,
-        message: (error as any) || t(TRANSLATION.ERROR),
+        message: (error as any).toString() || t(TRANSLATION.ERROR),
         status: EStatuses.Fail,
       })
     }
