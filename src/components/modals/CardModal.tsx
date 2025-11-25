@@ -193,7 +193,7 @@ function CardModalContent({
   const onCompleteOrderClick = () => orderMutation(async() => {
     await setOrderState(orderId, EBookingDriverState.Finished)
     navigate(`/driver-order?tab=${EDriverTabs.Lite}`)
-    setRatingModal({ isOpen: true })
+    setRatingModal({ isOpen: true, orderID: orderId })
     closeModal()
   })
 
@@ -215,7 +215,7 @@ function CardModalContent({
   }
 
   const onRateOrderClick = () => {
-    setRatingModal({ isOpen: true })
+    setRatingModal({ isOpen: true, orderID: orderId })
   }
 
   const openChatModal = () => {
