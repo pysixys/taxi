@@ -3,13 +3,14 @@ import cn from 'classnames'
 import { connect, ConnectedProps } from 'react-redux'
 import moment from 'moment'
 import { getPayment, formatCurrency } from '../../tools/utils'
+import images from '../../constants/images'
+import SITE_CONSTANTS from '../../siteConstants'
 import { IRootState } from '../../state'
 import {
   clientOrderSelectors,
   clientOrderActionCreators,
 } from '../../state/clientOrder'
 import { t, TRANSLATION } from '../../localization'
-import images from '../../constants/images'
 import Input, { EInputTypes, EInputStyles } from '../Input'
 import './styles.scss'
 
@@ -64,28 +65,22 @@ function PriceInput({
               typeof payment === 'number' ? formatCurrency(payment) : payment
             }`,
           }}
-          fieldWrapperClassName={cn('price-input__segment', {
-            'price-input__segment--active': active === 0,
-          })}
-          style={EInputStyles.RedDesign}
         />
       , [active === 0 && payment])}
-      {useMemo(() => new Array(3).fill(0).map((_, index) =>
+      {useMemo(() => SITE_CONSTANTS.ENABLE_CUSTOMER_PRICE &&
         <PriceInputItem
-          key={index + 1}
-          active={active === index + 1}
-          setActive={() => setActive(index + 1)}
+          active={active === 1}
+          setActive={() => setActive(1)}
           inputProps={{
-            value: undefined,
+            value: customerPrice ?? '',
             placeholder: t(TRANSLATION.CUSTOMER_PRICE),
           }}
-          fieldWrapperClassName={cn('price-input__segment', {
-            'price-input__segment--active': active === index + 1,
-          })}
+          onChange={value => {
+            setCustomerPrice(value as number | null)
+          }}
           inputType={EInputTypes.Number}
-          style={EInputStyles.RedDesign}
-        />,
-      ), [active])}
+        />
+      , [active === 1 && customerPrice])}
     </div>
   )
 }
@@ -114,6 +109,10 @@ function PriceInputItem({
       onClick={setActive}
     >
       <Input
+        fieldWrapperClassName={cn('price-input__segment', {
+          'price-input__segment--active': active,
+        })}
+        style={EInputStyles.RedDesign}
         {...inputProps}
         inputProps={{ disabled, ...(inputProps.inputProps ?? {}) }}
       />

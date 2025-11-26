@@ -406,10 +406,21 @@ function CardModalContent({
   }
   const price = calculateFinalPrice(order)
 
-  const _type = order?.b_payment_way === EPaymentWays.Credit ? TRANSLATION.CARD : TRANSLATION.CASH
-  const _value = (order && order.b_options && order.b_options.customer_price) ?
-    t(_type) + '. ' + t(TRANSLATION.WHAT_WE_DELIVERING) + ` ${order.b_options.customer_price} ${CURRENCY.SIGN}` :
-    t(_type) + '. ' + t(TRANSLATION.FIXED) + `${price ? CURRENCY.SIGN : ''}${(price || '-') || getPayment(order).text }`
+  const _type = order?.b_payment_way === EPaymentWays.Credit ?
+    TRANSLATION.CARD :
+    TRANSLATION.CASH
+  const _value = order?.b_options?.customer_price ?
+    (
+      t(_type) + '. ' +
+      t(TRANSLATION.CUSTOMER_PRICE) +
+      ` ${order.b_options.customer_price} ${CURRENCY.SIGN}`
+    ) :
+    (
+      t(_type) + '. ' +
+      t(TRANSLATION.FIXED) +
+      `${price ? CURRENCY.SIGN : ''}` +
+      `${(price || '-') || getPayment(order).text}`
+    )
 
   return (
     <div

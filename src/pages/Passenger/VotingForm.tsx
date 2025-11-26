@@ -4,7 +4,7 @@ import React, {
 } from 'react'
 import { connect, ConnectedProps, useStore } from 'react-redux'
 import moment from 'moment'
-import { EPointType, EPaymentWays, IOptions } from '../../types/types'
+import { EPointType, EPaymentWays } from '../../types/types'
 import images from '../../constants/images'
 import SITE_CONSTANTS from '../../siteConstants'
 import { getPhoneNumberError } from '../../tools/utils'
@@ -111,6 +111,7 @@ const VotingForm = function VotingForm({
     const state = store.getState()
     const carClass = clientOrderSelectors.carClass(state)
     const seats = clientOrderSelectors.seats(state)
+    const customerPrice = clientOrderSelectors.customerPrice(state)
 
     let error = false
     if (!from?.address) {
@@ -145,11 +146,6 @@ const VotingForm = function VotingForm({
 
     const startTime = moment(voting || time === 'now' ? undefined : time)
 
-    let options: IOptions = {
-      fromShortAddress: from?.shortAddress,
-      toShortAddress: to?.shortAddress,
-    }
-
     setSubmitting(true)
     try {
       const data = await createOrder({
@@ -166,7 +162,11 @@ const VotingForm = function VotingForm({
         b_car_class: carClass,
         b_payment_way: EPaymentWays.Cash,
         b_max_waiting: voting ? SITE_CONSTANTS.WAITING_INTERVAL : 7200,
-        b_options: options,
+        b_options: {
+          fromShortAddress: from?.shortAddress,
+          toShortAddress: to?.shortAddress,
+          customer_price: customerPrice,
+        },
         b_voting: voting,
       })
 

@@ -190,7 +190,11 @@ export default function Input({
           setBufferedValue(undefined)
           if (onChange)
             onChange(
-              numberValue !== null && value.length > 0 ? numberValue : value,
+              numberValue === null ?
+                value :
+                value.length > 0 ?
+                  numberValue :
+                  null,
             )
         }
 
