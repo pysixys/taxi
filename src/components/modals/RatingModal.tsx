@@ -1,22 +1,26 @@
-import React, { useState, useEffect } from 'react'
-import Rating from 'react-rating'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { connect, ConnectedProps } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
-import Button from '../Button'
-import Input from '../Input'
-import * as API from '../../API'
-import { t, TRANSLATION } from '../../localization'
+import Rating from 'react-rating'
+import moment from 'moment'
+import {
+  calculateFinalPrice,
+  calculateFinalPriceFormula,
+} from '../../tools/order'
+import { useSimpleSelector } from '../../tools/hooks'
 import images from '../../constants/images'
-import { clientOrderSelectors } from '../../state/clientOrder'
+import { CURRENCY } from '../../siteConstants'
+import * as API from '../../API'
 import { IRootState } from '../../state'
 import { modalsActionCreators, modalsSelectors } from '../../state/modals'
-import './styles.scss'
+import { clientOrderSelectors } from '../../state/clientOrder'
+import { ordersSelectors } from '../../state/orders'
 import { orderSelectors } from '../../state/order'
+import { t, TRANSLATION } from '../../localization'
+import Button from '../Button'
+import Input from '../Input'
 import Overlay from './Overlay'
-import { CURRENCY } from '../../siteConstants'
-import {getPayment} from "../../tools/utils";
-import {IOrder} from "../../types/types";
-import moment from "moment";
+import './styles.scss'
 
 const mapStateToProps = (state: IRootState) => ({
   isOpen: modalsSelectors.isRatingModalOpen(state),
@@ -31,92 +35,24 @@ const mapDispatchToProps = {
 
 const connector = connect(mapStateToProps, mapDispatchToProps)
 
-interface IProps extends ConnectedProps<typeof connector> {
-}
-export const calculateFinalPriceFormula = (order: IOrder | null) => {
-  if (!order) {
-    return 'err';
-  }
-  if (!order?.b_options?.pricingModel?.formula) {
-    return 'err';
-  }
-  let formula = order.b_options?.pricingModel?.formula;
-  let options = order.b_options?.pricingModel?.options || {};
+interface IProps extends ConnectedProps<typeof connector> {}
 
-  // pick up submitPrice from b_options
-  options = {
-    ...options,
-    ...{
-      submit_price: order.b_options?.submitPrice,
-      distance: order.b_options?.pricingModel?.calculationType === 'incomplete'? '?' : order.b_options?.pricingModel?.options?.distance,
-      duration:  order.b_options?.pricingModel?.calculationType === 'incomplete' && order.b_options?.pricingModel?.options?.duration === 0? '?' : order.b_options?.pricingModel?.options?.duration
-    }
-  }
-  // Replace all placeholders in the formula with their values
-  Object.entries(options).forEach(([key, value]) => {
-    const placeholder = `${key}`;
-    formula = (formula || 'error_0x01').replace(new RegExp(placeholder, 'g'), value === '?' ? '?' :Math.trunc(value)?.toString() || '0');
-  });
-
-  const timeRatioMatch = (formula || 'error_0x02').match(/\(([^)]+)\)\*(\d+(?:\.\d+)?)/);
-  if (timeRatioMatch) {
-    const coefficient = parseFloat(timeRatioMatch[2]);
-    if (coefficient === 1) {
-      // If coefficient is 1, remove parentheses and multiplication
-      formula = (formula || 'error_0x03').replace(/\(([^)]+)\)\*\d+(?:\.\d+)?/, '$1');
-    }
-  }
-
-  return formula
-}
-export const calculateFinalPrice = (order: IOrder | null) => {
-  if (!order) {
-    return 'err';
-  }
-  if(!order.b_options?.pricingModel?.formula) {
-    return 'err';
-  }
-  if(order.b_options?.pricingModel?.formula === '-') {
-      return '-'
-  }
-  let formula  = order.b_options?.pricingModel?.formula;
-  let options = order.b_options?.pricingModel?.options || {};
-
-  // pick up submitPrice from b_options
-  options = {
-    ...options,
-    ...{
-      submit_rice: order.b_options?.submitPrice
-    }
-  }
-  if (!formula || formula === 'err') {
-    return 'err';
-  }
-  Object.entries(options).forEach(([key, value]) => {
-    const placeholder = `${key}`;
-    formula = formula.replace(new RegExp(placeholder, 'g'), value?.toString() || '0');
-  });
-  console.log('FINAL FORMULA', formula, '=', eval(formula), ' ~ ', Math.trunc(eval(formula)))
-  try {
-    return Math.trunc(eval(formula)).toString()
-  } catch (e) {
-    return 'err, status: ' + e;
-  }
-}
-
-const RatingModal: React.FC<IProps> = ({
+function RatingModal({
   isOpen,
   orderID,
   selectedOrder,
   detailedOrder,
   setRatingModal,
-}) => {
-  console.log('Rerendering rating modal')
+}: IProps) {
   const [stars, setStars] = useState(0)
   const [tips, setTips] = useState('')
   const [comment, setComment] = useState('')
 
   const _orderID = orderID || detailedOrder?.b_id || selectedOrder
+  const order = useSimpleSelector(useCallback((state: IRootState) =>
+    detailedOrder ??
+    (_orderID ? ordersSelectors.order(state, _orderID) : undefined)
+  , [detailedOrder ?? _orderID]))
 
   const navigate = useNavigate()
 
@@ -141,33 +77,34 @@ const RatingModal: React.FC<IProps> = ({
     setRatingModal({ isOpen: false })
   }
 
-  let finalPriceFormula: string | undefined = 'err'
-  let finalPrice: string | number = 0
-  console.log('detailedOrder', detailedOrder)
-  if (detailedOrder?.b_options?.pricingModel) {
-    const start_moment = moment(detailedOrder.b_start_datetime)
-    const end_moment = moment(detailedOrder.b_completed)
-    console.log('TOTAL DURATION:',end_moment.diff(start_moment, 'minutes'))
-    
-    const updatedOptions = {
-      ...(detailedOrder.b_options.pricingModel.options || {}),
-      duration: end_moment.diff(start_moment, 'minutes')
-    }
-    
-    const orderWithUpdatedOptions = {
-      ...detailedOrder,
-      b_options: {
-        ...detailedOrder.b_options,
-        pricingModel: {
-          ...detailedOrder.b_options.pricingModel,
-          options: updatedOptions
-        }
+  const [finalPriceFormula, finalPrice] = useMemo(() => {
+    if (order?.b_options?.pricingModel) {
+      const start_moment = moment(order.b_start_datetime)
+      const end_moment = moment(order.b_completed)
+
+      const updatedOptions = {
+        ...(order.b_options.pricingModel.options || {}),
+        duration: end_moment.diff(start_moment, 'minutes'),
       }
+
+      const orderWithUpdatedOptions = {
+        ...order,
+        b_options: {
+          ...order.b_options,
+          pricingModel: {
+            ...order.b_options.pricingModel,
+            options: updatedOptions,
+          },
+        },
+      }
+
+      return [
+        calculateFinalPriceFormula(orderWithUpdatedOptions),
+        calculateFinalPrice(orderWithUpdatedOptions),
+      ]
     }
-    
-    finalPriceFormula = calculateFinalPriceFormula(orderWithUpdatedOptions)
-    finalPrice = calculateFinalPrice(orderWithUpdatedOptions)
-  }
+    return ['err', 0]
+  }, [order])
 
   return (
     <Overlay
@@ -180,14 +117,14 @@ const RatingModal: React.FC<IProps> = ({
         <form>
           <fieldset>
             {finalPriceFormula !== 'err' && (
-                <div>
-                  <div className="final-price">
-                    {t(TRANSLATION.FINAL_PRICE)}: {finalPrice!=='-'? CURRENCY.SIGN : ''} {finalPrice + (detailedOrder?.b_options?.pricingModel?.calculationType === 'incomplete' ? '+?' : '')}
-                  </div>
-                  <div className="final-price">
-                    {t(TRANSLATION.CALCULATION)}: {finalPriceFormula}
-                  </div>
+              <div>
+                <div className="final-price">
+                  {t(TRANSLATION.FINAL_PRICE)}: {finalPrice!=='-'? CURRENCY.SIGN : ''} {finalPrice + (order?.b_options?.pricingModel?.calculationType === 'incomplete' ? '+?' : '')}
                 </div>
+                <div className="final-price">
+                  {t(TRANSLATION.CALCULATION)}: {finalPriceFormula}
+                </div>
+              </div>
             )}
             <legend>{t(TRANSLATION.RATING_HEADER)}!</legend>
             <h3>{t(TRANSLATION.YOUR_RATING)}</h3>
@@ -206,14 +143,14 @@ const RatingModal: React.FC<IProps> = ({
                 inputProps={{
                   placeholder: t(TRANSLATION.ADD_TAXES),
                   value: tips,
-                  onChange: (e: React.ChangeEvent<HTMLInputElement>) => setTips(e.target.value.toString())
+                  onChange: (e: React.ChangeEvent<HTMLInputElement>) => setTips(e.target.value.toString()),
                 }}
               />
               <Input
                 inputProps={{
                   placeholder: t(TRANSLATION.WRITE_COMMENT),
                   value: comment,
-                  onChange: (e: React.ChangeEvent<HTMLInputElement>) => setComment(e.target.value.toString())
+                  onChange: (e: React.ChangeEvent<HTMLInputElement>) => setComment(e.target.value.toString()),
                 }}
               />
               <Button
@@ -223,9 +160,9 @@ const RatingModal: React.FC<IProps> = ({
                 disabled={stars === 0}
               />
               <div>
-                <p>b_start_datetime: {(detailedOrder?.b_start_datetime || '').toString()}</p>
-                <p>b_completed: {(detailedOrder?.b_completed || '').toString()}</p>
-                <p>diff: {(moment(detailedOrder?.b_completed).diff(moment(detailedOrder?.b_start_datetime), 'minutes') || '').toString()}</p>
+                <p>b_start_datetime: {(order?.b_start_datetime || '').toString()}</p>
+                <p>b_completed: {(order?.b_completed || '').toString()}</p>
+                <p>diff: {(moment(order?.b_completed).diff(moment(order?.b_start_datetime), 'minutes') || '').toString()}</p>
               </div>
             </div>
           </fieldset>

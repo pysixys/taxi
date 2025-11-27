@@ -8,7 +8,6 @@ import {
   ICar,
   IOrderEstimation,
 } from '../types/types'
-import { calculateFinalPrice } from '../components/modals/RatingModal'
 import { IWayGraph, IWayGraphNode } from './maps'
 
 export function updateCompletedOrderDuration(order: IOrder): IOrder {
@@ -35,6 +34,78 @@ export function updateCompletedOrderDuration(order: IOrder): IOrder {
       order.b_options!.pricingModel!.price = newPrice
   }
   return order
+}
+
+export const calculateFinalPriceFormula = (order: IOrder | null) => {
+  if (!order) {
+    return 'err'
+  }
+  if (!order?.b_options?.pricingModel?.formula) {
+    return 'err'
+  }
+  let formula = order.b_options?.pricingModel?.formula
+  let options = order.b_options?.pricingModel?.options || {}
+
+  // pick up submitPrice from b_options
+  options = {
+    ...options,
+    ...{
+      submit_price: order.b_options?.submitPrice,
+      distance: order.b_options?.pricingModel?.calculationType === 'incomplete'? '?' : order.b_options?.pricingModel?.options?.distance,
+      duration:  order.b_options?.pricingModel?.calculationType === 'incomplete' && order.b_options?.pricingModel?.options?.duration === 0? '?' : order.b_options?.pricingModel?.options?.duration,
+    },
+  }
+  // Replace all placeholders in the formula with their values
+  Object.entries(options).forEach(([key, value]) => {
+    const placeholder = `${key}`
+    formula = (formula || 'error_0x01').replace(new RegExp(placeholder, 'g'), value === '?' ? '?' :Math.trunc(value)?.toString() || '0')
+  })
+
+  const timeRatioMatch = (formula || 'error_0x02').match(/\(([^)]+)\)\*(\d+(?:\.\d+)?)/)
+  if (timeRatioMatch) {
+    const coefficient = parseFloat(timeRatioMatch[2])
+    if (coefficient === 1) {
+      // If coefficient is 1, remove parentheses and multiplication
+      formula = (formula || 'error_0x03').replace(/\(([^)]+)\)\*\d+(?:\.\d+)?/, '$1')
+    }
+  }
+
+  return formula
+}
+
+export const calculateFinalPrice = (order: IOrder | null) => {
+  if (!order) {
+    return 'err'
+  }
+  if(!order.b_options?.pricingModel?.formula) {
+    return 'err'
+  }
+  if(order.b_options?.pricingModel?.formula === '-') {
+    return '-'
+  }
+  let formula  = order.b_options?.pricingModel?.formula
+  let options = order.b_options?.pricingModel?.options || {}
+
+  // pick up submitPrice from b_options
+  options = {
+    ...options,
+    ...{
+      submit_rice: order.b_options?.submitPrice,
+    },
+  }
+  if (!formula || formula === 'err') {
+    return 'err'
+  }
+  Object.entries(options).forEach(([key, value]) => {
+    const placeholder = `${key}`
+    formula = formula.replace(new RegExp(placeholder, 'g'), value?.toString() || '0')
+  })
+  console.log('FINAL FORMULA', formula, '=', eval(formula), ' ~ ', Math.trunc(eval(formula)))
+  try {
+    return Math.trunc(eval(formula)).toString()
+  } catch (e) {
+    return 'err, status: ' + e
+  }
 }
 
 export function estimateOrder(

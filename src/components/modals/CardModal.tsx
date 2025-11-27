@@ -24,6 +24,10 @@ import {
   getPayment,
   formatCurrency,
 } from '../../tools/utils'
+import {
+  calculateFinalPrice,
+  calculateFinalPriceFormula,
+} from '../../tools/order'
 import { useCachedState, useSelector } from '../../tools/hooks'
 import { t, TRANSLATION } from '../../localization'
 import { IRootState } from '../../state'
@@ -41,7 +45,6 @@ import Button from '../Button'
 import Input from '../Input'
 import { Loader } from '../loader/Loader'
 import '../Card/styles.scss'
-import { calculateFinalPrice, calculateFinalPriceFormula } from './RatingModal'
 
 const bookingStates: Record<number, keyof typeof EBookingStates> = {
   1: 'Processing',
