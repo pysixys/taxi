@@ -83,30 +83,33 @@ const HomePageRedirect = () => {
   )
 }
 
-const AppRoutes: React.FC<{user: IUser | null}> = ({ user }) => (
-  <>
-    <Routes>
-      <Route
-        path="/*"
-        element={<>
-          <Navigate
-            replace
-            to={
-              user?.u_role === EUserRoles.Client ?
-                '/passenger-order' :
-                user?.u_role === EUserRoles.Driver ? '/driver-order' : '/'
-            }
-          />
-          <PassengerOrder />
-        </>}
-      />
-      <Route path="/passenger-order" element={<PassengerOrder />} />
-      <Route path="/driver-order/:id" element={<Order />} />
-      <Route path="/driver-order" element={<DriverOrder />} />
-      <Route path="/driver-order-test" element={<DriverOrder />} />
-      <Route path="/sandbox" element={<Sandbox />} />
-    </Routes>
-  </>
+const AppRoutes = ({ user }: {user: IUser | null}) => (
+  <Routes>
+    <Route
+      path="/*"
+      element={<>
+        <Navigate
+          replace
+          to={
+            [
+              EUserRoles.Client,
+              EUserRoles.Agent,
+            ].includes(user?.u_role as any) ?
+              '/passenger-order' :
+              user?.u_role === EUserRoles.Driver ?
+                '/driver-order' :
+                '/'
+          }
+        />
+        <PassengerOrder />
+      </>}
+    />
+    <Route path="/passenger-order" element={<PassengerOrder />} />
+    <Route path="/driver-order/:id" element={<Order />} />
+    <Route path="/driver-order" element={<DriverOrder />} />
+    <Route path="/driver-order-test" element={<DriverOrder />} />
+    <Route path="/sandbox" element={<Sandbox />} />
+  </Routes>
 )
 
 export default connector(AppRoutesWrapper)

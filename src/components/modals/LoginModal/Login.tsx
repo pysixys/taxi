@@ -122,34 +122,23 @@ const LoginForm: React.FC<IProps> = ({
   }, [isOpen])
 
   useEffect(() => {
-    let auth_hash = getParamFromURL('auth_hash')
-    if (auth_hash) {
-      if (typeof auth_hash === 'string') {
-        googleLogin({
-          data: null,
-          auth_hash: decodeURIComponent(auth_hash),
-          navigate,
-        })
-      }
-    } else {
-      let u_email = getParamFromURL('u_email')
-      let u_name = getParamFromURL('u_name')
+    let u_email = getParamFromURL('u_email')
+    let u_name = getParamFromURL('u_name')
 
-      if (typeof u_email === 'string' && typeof u_name === 'string') {
-        setRefOpen({
-          isOpen: true,
-          data: {
-            u_name: decodeURIComponent(u_name).replaceAll('+', ' '),
-            u_phone: '',
-            u_email: decodeURIComponent(u_email),
-            type: ERegistrationType.Email,
-            u_role: EUserRoles.Client,
-            ref_code: '',
-            u_details: {},
-            st: '1',
-          },
-        })
-      }
+    if (typeof u_email === 'string' && typeof u_name === 'string') {
+      setRefOpen({
+        isOpen: true,
+        data: {
+          u_name: decodeURIComponent(u_name).replaceAll('+', ' '),
+          u_phone: '',
+          u_email: decodeURIComponent(u_email),
+          type: ERegistrationType.Email,
+          u_role: EUserRoles.Client,
+          ref_code: '',
+          u_details: {},
+          st: '1',
+        },
+      })
     }
   }, [])
 
@@ -167,7 +156,10 @@ const LoginForm: React.FC<IProps> = ({
 
 
   useEffect(() => {
-    if (((status === EStatuses.Fail || status === EStatuses.Success && user)) && type !== ERegistrationType.Whatsapp && !isVisible) {
+    if (
+      (status === EStatuses.Fail || status === EStatuses.Success && user) &&
+      type !== ERegistrationType.Whatsapp && !isVisible
+    ) {
       console.log('togglin, prev: ', isVisible)
       toggleVisibility()
     } else if (status === EStatuses.Whatsapp) {
@@ -175,18 +167,18 @@ const LoginForm: React.FC<IProps> = ({
       setWAOpen({
         isOpen: true,
         login: login,
-        data: {...dataToLogin, navigate},
+        data: { ...dataToLogin, navigate },
       })
     }
   }, [status])
   useEffect(() => {
     if(status === EStatuses.Success && message==='remind_password_success') {
+      toggleVisibility()
+      if (!isVisible) {
         toggleVisibility()
-      if(!isVisible) {
-          toggleVisibility()
       }
     }
-  }, [status]);
+  }, [status])
 
   if (tab !== LOGIN_TABS_IDS[0]) return null
 
@@ -204,134 +196,134 @@ const LoginForm: React.FC<IProps> = ({
         } :
         {
           ...data,
-          login: data.login || ''
+          login: data.login || '',
         }
-      login({...loginData, navigate: navigate})
+      login({ ...loginData, navigate: navigate })
     }
   }
 
   const getParamFromURL = (param: string) => {
-    let results = new RegExp('[\?&]' + param + '=([^&#]*)').exec(window.location.href)
-    if (results == null) {
-      return null
-    } else {
-      return decodeURIComponent(results[1]) || 0
-    }
+    const value = new URLSearchParams(location.search).get(param)
+    return value && decodeURIComponent(value)
   }
 
-  return <form
-    className="login-form sign-in-subform"
-    onSubmit={handleSubmit(onSubmit)}
-  >
-    <Input
-      inputProps={{
-        ...formRegister('login'),
-        placeholder: type === ERegistrationType.Phone || type === ERegistrationType.Whatsapp ? t(TRANSLATION.PHONE) : t(TRANSLATION.EMAIL),
-      }}
-      label={t(TRANSLATION.LOGIN)}
-      error={errors.login?.message}
-      key={type}
-    />
-    {isPasswordVisible &&
-          <Input
-            inputProps={{
-              ...formRegister('password'),
-              type: isPasswordShows ? 'text' : 'password',
-              placeholder: t(TRANSLATION.PASSWORD),
-            }}
-            label={t(TRANSLATION.PASSWORD)}
-            error={errors.password?.message}
-            buttons={[
-              {
-                src: isPasswordShows ? images.closedEye : images.openedEye,
-                onClick: () => setIsPasswordShows(prev => !prev),
-              },
-              {
-                ...(!user ?
-                  {
-                    className: 'restore-password-block__button',
-                    type: 'button',
-                    onClick: () => {
-                      formLogin && window.confirm(t(TRANSLATION.PASSWORD_RESET_MESSAGE)) && remindPassword(formLogin)
-                    },
-                    disabled: !formLogin || !!errors?.login,
-                    text: t(TRANSLATION.RESTORE_PASSWORD),
-                    skipHandler: true,
-                  } :
-                  {}
-                ),
-              },
-            ].filter(item => Object.values(item).length)}
-          />
-    }
-
-    <Checkbox
-      {...formRegister('type')}
-      type="radio"
-      label={t(TRANSLATION.EMAIL)}
-      value={ERegistrationType.Email}
-      id="email"
-    />
-    <Checkbox
-      {...formRegister('type')}
-      type="radio"
-      label={'Whatsapp'}
-      value={ERegistrationType.Whatsapp}
-      id="whatsapp"
-    />
-
-    {
-      isVisible &&
-          <div className="alert-container">
-            <Alert
-              intent={status === EStatuses.Fail ? Intent.ERROR : Intent.SUCCESS}
-              message={(status === EStatuses.Fail ? t(TRANSLATION.LOGIN_FAIL) + ': ' + message : ( message === 'remind_password_success' ? t(TRANSLATION.REMIND_PASSWORD_SUCCESS) : t(TRANSLATION.LOGIN_SUCCESS)))}
-              onClose={toggleVisibility}
+  return (
+    <form
+      className="login-form sign-in-subform"
+      onSubmit={handleSubmit(onSubmit)}
+    >
+      <Input
+        inputProps={{
+          ...formRegister('login'),
+          placeholder: type === ERegistrationType.Phone || type === ERegistrationType.Whatsapp ?
+            t(TRANSLATION.PHONE) :
+            t(TRANSLATION.EMAIL),
+        }}
+        label={t(TRANSLATION.LOGIN)}
+        error={errors.login?.message}
+        key={type}
+      />
+      {isPasswordVisible &&
+            <Input
+              inputProps={{
+                ...formRegister('password'),
+                type: isPasswordShows ? 'text' : 'password',
+                placeholder: t(TRANSLATION.PASSWORD),
+              }}
+              label={t(TRANSLATION.PASSWORD)}
+              error={errors.password?.message}
+              buttons={[
+                {
+                  src: isPasswordShows ? images.closedEye : images.openedEye,
+                  onClick: () => setIsPasswordShows(prev => !prev),
+                },
+                {
+                  ...(!user ?
+                    {
+                      className: 'restore-password-block__button',
+                      type: 'button',
+                      onClick: () => {
+                        formLogin && window.confirm(t(TRANSLATION.PASSWORD_RESET_MESSAGE)) && remindPassword(formLogin)
+                      },
+                      disabled: !formLogin || !!errors?.login,
+                      text: t(TRANSLATION.RESTORE_PASSWORD),
+                      skipHandler: true,
+                    } :
+                    {}
+                  ),
+                },
+              ].filter(item => Object.values(item).length)}
             />
-          </div>
-    }
+      }
 
-    {Number(role) !== EUserRoles.Driver && (
-      // <LoginSocialGoogle
-      //   client_id={googleClientId}
-      //   onLoginStart={() => {}}
-      //   redirect_uri={''}
-      //   scope="profile email"
-      //   access_type="online"
-      //   onResolve={(data) => {
-      //     console.log(data)
-      //   // const obj = {
-      //   //   u_name: data?.name,
-      //   //   u_phone: '',
-      //   //   u_email: 'moj14frffefff@gmail.com',          // TODO: заменить на data?.email
-      //   //   type: ERegistrationType.Email,
-      //   //   u_role: EUserRoles.Client,
-      //   //   ref_code: '',
-      //   //   u_details: {},
-      //   //   st: '1',
-      //   // }
-      //   //googleLogin(obj)
-      //   }}
-      //   onReject={err => {
-      //     console.log(err)
-      //   }}
-      // >
-      <a href={`https://accounts.google.com/o/oauth2/v2/auth?response_type=code&access_type=offline&client_id=${googleClientId}&redirect_uri=${Config.SERVER_URL}/google/&state&scope=email%20profile&prompt=select_account`}>
-        <GoogleLoginButton />
-      </a>
+      <Checkbox
+        {...formRegister('type')}
+        type="radio"
+        label={t(TRANSLATION.EMAIL)}
+        value={ERegistrationType.Email}
+        id="email"
+      />
+      <Checkbox
+        {...formRegister('type')}
+        type="radio"
+        label={'Whatsapp'}
+        value={ERegistrationType.Whatsapp}
+        id="whatsapp"
+      />
 
-    )}
+      {
+        isVisible &&
+            <div className="alert-container">
+              <Alert
+                intent={status === EStatuses.Fail ? Intent.ERROR : Intent.SUCCESS}
+                message={(status === EStatuses.Fail ? t(TRANSLATION.LOGIN_FAIL) + ': ' + message : ( message === 'remind_password_success' ? t(TRANSLATION.REMIND_PASSWORD_SUCCESS) : t(TRANSLATION.LOGIN_SUCCESS)))}
+                onClose={toggleVisibility}
+              />
+            </div>
+      }
 
-    <Button
-      type="submit"
-      text={!!user ? t(TRANSLATION.LOGOUT) : t(TRANSLATION.SIGN_IN)}
-      fixedSize={false}
-      className="login-modal_login-btn"
-      skipHandler={true}
-      disabled={!!Object.values(errors).length}
-      status={status}
-    />
-  </form>
+      {Number(role) !== EUserRoles.Driver && (
+        // <LoginSocialGoogle
+        //   client_id={googleClientId}
+        //   onLoginStart={() => {}}
+        //   redirect_uri={''}
+        //   scope="profile email"
+        //   access_type="online"
+        //   onResolve={(data) => {
+        //     console.log(data)
+        //   // const obj = {
+        //   //   u_name: data?.name,
+        //   //   u_phone: '',
+        //   //   u_email: 'moj14frffefff@gmail.com',          // TODO: заменить на data?.email
+        //   //   type: ERegistrationType.Email,
+        //   //   u_role: EUserRoles.Client,
+        //   //   ref_code: '',
+        //   //   u_details: {},
+        //   //   st: '1',
+        //   // }
+        //   //googleLogin(obj)
+        //   }}
+        //   onReject={err => {
+        //     console.log(err)
+        //   }}
+        // >
+        <a href={`https://accounts.google.com/o/oauth2/v2/auth?response_type=code&access_type=offline&client_id=${googleClientId}&redirect_uri=${Config.SERVER_URL}/google/&state&scope=email%20profile&prompt=select_account`}>
+          <GoogleLoginButton />
+        </a>
+
+      )}
+
+      <Button
+        type="submit"
+        text={!!user ? t(TRANSLATION.LOGOUT) : t(TRANSLATION.SIGN_IN)}
+        fixedSize={false}
+        className="login-modal_login-btn"
+        skipHandler={true}
+        disabled={!!Object.values(errors).length}
+        status={status}
+      />
+    </form>
+  )
 }
 
 export default connector(LoginForm)

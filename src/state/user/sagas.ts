@@ -25,6 +25,7 @@ export const saga = function* () {
     takeEvery(ActionTypes.REMIND_PASSWORD_REQUEST, remindPasswordSaga),
     takeEvery(ActionTypes.INIT_USER, initUserSaga),
     takeEvery(ActionTypes.WHATSAPP_SIGNUP_REQUEST, whatsappSignUpSaga),
+    call(handleRedirectSaga),
   ])
 }
 
@@ -87,14 +88,7 @@ function* googleLoginSaga(data: TAction) {
     const result = yield* call(API.googleLogin, data.payload)
 
     if (!result) throw new Error('Wrong login response')
-    console.log('GFP-POINT-01: Saving tokens from goole auth to localStorage', result)
     localStorage.setItem('state.user.tokens', JSON.stringify(result.tokens))
-
-    if(result.user.u_role === EUserRoles.Client || result.user.u_role === EUserRoles.Agent) {
-      data.payload.navigate('/passenger-order')
-    } else if(result.user.u_role === EUserRoles.Driver) {
-      data.payload.navigate('/driver-order')
-    }
 
     yield put({
       type: ActionTypes.GOOGLE_LOGIN_SUCCESS,
@@ -265,4 +259,17 @@ function* whatsappSignUpSaga(data: TAction) {
     console.error(error)
     yield put({ type: ActionTypes.WHATSAPP_SIGNUP_FAIL })
   }
+}
+
+function* handleRedirectSaga() {
+  const params = new URLSearchParams(window.location.search)
+  const authHash = params.get('auth_hash')
+  if (authHash)
+    yield put({
+      type: ActionTypes.GOOGLE_LOGIN_REQUEST,
+      payload: {
+        data: null,
+        auth_hash: decodeURIComponent(authHash),
+      },
+    })
 }
