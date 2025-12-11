@@ -1,21 +1,21 @@
 import React, { useEffect, useState } from 'react'
 import { connect, ConnectedProps } from 'react-redux'
-import { t, TRANSLATION } from '../../localization'
-import { modalsActionCreators, modalsSelectors } from '../../state/modals'
-import { clientOrderSelectors } from '../../state/clientOrder'
+import cn from 'classnames'
+import { ICar, IOrder, IReply, IUser } from '../../types/types'
+import { dateFormatDate } from '../../tools/utils'
+import { useInterval } from '../../tools/hooks'
+import images from '../../constants/images'
+import * as API from '../../API'
+import SITE_CONSTANTS, { CURRENCY } from '../../siteConstants'
 import { IRootState } from '../../state'
+import { modalsActionCreators, modalsSelectors } from '../../state/modals'
+import { userSelectors } from '../../state/user'
+import { clientOrderSelectors } from '../../state/clientOrder'
+import { t, TRANSLATION } from '../../localization'
+import Button from '../Button'
+import ChatToggler from '../Chat/Toggler'
 import './styles.scss'
 import Overlay from './Overlay'
-import { ICar, IOrder, IReply, IUser } from '../../types/types'
-import cn from 'classnames'
-import images from '../../constants/images'
-import { dateFormatDate } from '../../tools/utils'
-import SITE_CONSTANTS, { CURRENCY } from '../../siteConstants'
-import Button from '../Button'
-import * as API from '../../API'
-import ChatToggler from '../Chat/Toggler'
-import { useInterval } from '../../tools/hooks'
-import { userSelectors } from '../../state/user'
 
 const mapStateToProps = (state: IRootState) => ({
   isOpen: modalsSelectors.isCandidatesModalOpen(state),
@@ -30,16 +30,15 @@ const mapDispatchToProps = {
 
 const connector = connect(mapStateToProps, mapDispatchToProps)
 
-interface IProps extends ConnectedProps<typeof connector> {
-}
+interface IProps extends ConnectedProps<typeof connector> {}
 
-const CandidatesModal: React.FC<IProps> = ({
+function CandidatesModal({
   isOpen,
   selectedOrder,
   user,
   setCandidatesModal,
   setMessageModal,
-}) => {
+}: IProps) {
   const [activeCandidate, setActiveCandidate] = useState<IUser['u_id'] | null>(null)
   const [order, setOrder] = useState<IOrder | null>(null)
   const [users, setUsers] = useState<IUser[]>([])
@@ -113,12 +112,15 @@ const CandidatesModal: React.FC<IProps> = ({
                     </div>
                     <div className="candidate__header-info">
                       <h6 className="candidate__header-name">
-                        <span>{user?.u_name}{user?.u_family ? ` ${user?.u_family}` : ''}(#{user?.u_id}),</span>&nbsp;
-                        <span>
-                          {!!car?.color && t(TRANSLATION.CAR_COLORS[car.color])}&nbsp;
-                          {!!car?.cm_id && t(TRANSLATION.CAR_MODELS[car.cm_id])}&nbsp;
-                          {car?.registration_plate}(#{car?.c_id})
+                        {user?.u_name}{user?.u_family ? ` ${user?.u_family}` : ''}(#{user?.u_id}),
+                      </h6>
+                      <h6 className="candidate__header-name">
+                        {!!car?.color && t(TRANSLATION.CAR_COLORS[car.color])}&nbsp;
+                        {!!car?.cm_id && t(TRANSLATION.CAR_MODELS[car.cm_id])}&nbsp;
+                        <span className="candidate__registration-plate">
+                          {car?.registration_plate}
                         </span>
+                        (#{car?.c_id})
                       </h6>
                       <div className="candidate__header-subinfo">
                         <div>

@@ -85,16 +85,19 @@ function CommentsModal({
         className="comments-modal__form"
         onSubmit={handleSubmit(onSubmit)}
       >
-        {Object.keys(SITE_CONSTANTS.BOOKING_COMMENTS).map(id =>
-          <Checkbox
-            key={id}
-            {...register('ids')}
-            id={componentId + id}
-            checkboxStyle={ECheckboxStyles.RedDesign}
-            value={id}
-            label={t(TRANSLATION.BOOKING_COMMENTS[id])}
-          />,
-        )}
+        {Object.entries(SITE_CONSTANTS.BOOKING_COMMENTS)
+          .filter(([, comment]) => !comment.internal)
+          .map(([id]) =>
+            <Checkbox
+              key={id}
+              {...register('ids')}
+              id={componentId + id}
+              checkboxStyle={ECheckboxStyles.RedDesign}
+              value={id}
+              label={t(TRANSLATION.BOOKING_COMMENTS[id])}
+            />,
+          )
+        }
         {ids?.some(id =>
           SITE_CONSTANTS.BOOKING_COMMENTS[id].type ===
             EBookingCommentTypes.Plane,

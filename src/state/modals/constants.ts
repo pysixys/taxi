@@ -108,5 +108,6 @@ export interface IModalsState {
     orderId: IOrder['b_id']
   } | {
     isOpen: false
+    orderId?: undefined
   }
 }

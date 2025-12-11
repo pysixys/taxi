@@ -3,6 +3,7 @@ import SITE_CONSTANTS from '../siteConstants'
 import { DEFAULT_CITY_ID, PROFIT_RANKS } from '../constants/orders'
 import {
   EBookingStates,
+  EDriverResponseModes,
   EOrderProfitRank,
   IOrder,
   ICar,
@@ -105,6 +106,26 @@ export const calculateFinalPrice = (order: IOrder | null) => {
     return Math.trunc(eval(formula)).toString()
   } catch (e) {
     return 'err, status: ' + e
+  }
+}
+
+export function candidateMode(order?: IOrder): boolean {
+  switch (SITE_CONSTANTS.DRIVER_RESPONSE_MODE) {
+    case EDriverResponseModes.Performer:
+      return false
+    case EDriverResponseModes.Candidate:
+      return true
+    case EDriverResponseModes.ByOrder:
+      for (const id of order?.b_comments ?? [])
+        switch (SITE_CONSTANTS.BOOKING_COMMENTS[id].responseMode) {
+          case EDriverResponseModes.Performer:
+            return false
+          case EDriverResponseModes.Candidate:
+            return true
+        }
+      return false
+    default:
+      throw new Error('Not implemented')
   }
 }
 

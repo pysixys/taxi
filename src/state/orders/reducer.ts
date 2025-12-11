@@ -45,8 +45,7 @@ export default function(
     }
     case ActionTypes.UNWATCH_ORDER:
     case ActionTypes.MUTATION_FAIL:
-    case ActionTypes.UPDATE_SUCCESS:
-    case ActionTypes.DELETE_SUCCESS: {
+    case ActionTypes.UPDATE_SUCCESS: {
       let orderData = state.orders.get(payload)!
         .update(
           type === ActionTypes.UNWATCH_ORDER ? 'listeners' : 'mutations',
@@ -55,10 +54,6 @@ export default function(
       if (type === ActionTypes.UPDATE_SUCCESS)
         orderData = orderData
           .set('stale', true)
-      if (type === ActionTypes.DELETE_SUCCESS)
-        orderData = orderData
-          .set('value', null)
-          .set('partial', null)
       return state
         .set('orders', orderData.listeners > 0 || orderData.mutations > 0 ?
           state.orders

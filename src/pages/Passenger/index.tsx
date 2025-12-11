@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { connect, ConnectedProps } from 'react-redux'
 import { EBookingDriverState, IOrder } from '../../types/types'
+import { candidateMode } from '../../tools/order'
 import { useSwipe } from '../../tools/swipe'
 import * as API from '../../API'
 import { IRootState } from '../../state'
@@ -106,15 +107,20 @@ function Passenger({
       setVoteModal(false)
       setDriverModal(false)
       setOnTheWayModal(false)
-      return
+      setCandidatesModal(false)
     }
 
-    if (selectedOrder.b_voting && !selectedOrderDriver) {
+    else if (
+      candidateMode(selectedOrder) && !selectedOrderDriver &&
+      (selectedOrder.drivers?.length ?? 0) > 0
+    )
+      setCandidatesModal(true)
+
+    else if (selectedOrder.b_voting && !selectedOrderDriver)
       setVoteModal(true)
-      return
-    }
 
-    onDriverStateChange()
+    else
+      onDriverStateChange()
   }
 
   useEffect(() => {
@@ -129,6 +135,7 @@ function Passenger({
       setVoteModal(false)
       setDriverModal(false)
       setOnTheWayModal(false)
+      setCandidatesModal(false)
       return
     }
 

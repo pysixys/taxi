@@ -206,9 +206,12 @@ function MapContent({
 
     if (!from?.latitude || !from?.longitude || !to?.latitude || !to?.longitude)
       return
+    let changed = false
 
     API.makeRoutePoints(from, to)
       .then((info) => {
+        if (changed)
+          return
         setRouteInfo(info)
         setShowRouteInfo(true)
         setTimeout(() => {
@@ -218,6 +221,10 @@ function MapContent({
       .catch((error) => {
         console.error(error)
       })
+
+    return () => {
+      changed = true
+    }
   }, [from, to])
 
   const duration = [

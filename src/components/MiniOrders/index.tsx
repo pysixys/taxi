@@ -10,6 +10,7 @@ import {
   getPayment,
   formatCurrency,
 } from '../../tools/utils'
+import { candidateMode } from '../../tools/order'
 import { IRootState } from '../../state'
 import { ordersSelectors } from '../../state/orders'
 import { clientOrderActionCreators } from '../../state/clientOrder'
@@ -57,7 +58,11 @@ function MiniOrders({
           return (
             <div
               key={order.b_id}
-              className={cn({ disabled: !order.drivers?.length && !order?.b_voting && !['96', '95'].some(item => order?.b_comments?.includes(item)) })}
+              className={cn({
+                disabled: !order.drivers?.length &&
+                  !order.b_voting &&
+                  !candidateMode(order),
+              })}
               onClick={() => handleOrderClick(order)}
             >
               <span className='order-id'>№ {order.b_id}</span>

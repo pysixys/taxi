@@ -7,8 +7,15 @@ export const names = {
   call: 'call.svg',
   car: 'car.svg',
   money: 'money.svg',
+  moneyCircle: 'money-circle.svg',
   msg: 'msg.svg',
   people: 'people.svg',
+  whatsapp: 'whatsapp.svg',
+  chat: 'chat.svg',
+  star: 'star-empty.svg',
+  filledStar: 'star-filled.svg',
+  locationPoint: 'location-point.svg',
+  clock: 'clock.svg',
 }
 
 export default new Proxy(names, {

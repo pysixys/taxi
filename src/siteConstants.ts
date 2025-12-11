@@ -3,6 +3,7 @@ import {
   parseAvailableModes,
   parseCities,
   parseCarClasses,
+  parseBookingComments,
   parseBookingLocationClasses,
   parseCalculationBenefits,
   parseEntries,
@@ -18,6 +19,7 @@ import {
   ICity,
   ICarClass,
   IBookingLocationClass,
+  EDriverResponseModes,
   EBookingCommentTypes,
   IBookingComment,
   IProfitEstimationConfig,
@@ -65,14 +67,16 @@ const defaultValues = {
   MONEY_MODES: '',
   BIG_TRUCK_TRANSPORT_TYPES: '1-truck;2-wagon',
   BIG_TRUCK_CARGO_TYPES: '1-truck;2-wagon',
+  C_OPTIONS_VALID_KEYS: JSON.stringify({}),
   CAR_CLASSES: {},
-  BOOKING_COMMENTS: Object.fromEntries([
-    ...new Array(7).fill(undefined).map((_, index) => [
-      index + 1,
-      { id: index + 1 },
-    ]),
-    [8, { id: 8, type: EBookingCommentTypes.Plane }],
-  ]),
+  DRIVER_RESPONSE_MODE: EDriverResponseModes.Performer,
+  BOOKING_COMMENTS: {
+    ...Object.fromEntries(new Array(7).fill(undefined).map((_, index) => [
+      `${index + 1}`,
+      { id: `${index + 1}` },
+    ])),
+    '8': { id: '8', type: EBookingCommentTypes.Plane },
+  },
   BOOKING_LOCATION_CLASSES: {},
   CALCULATION_BENEFITS: JSON.stringify({}),
   LANGUAGES: {
@@ -112,8 +116,10 @@ class Constants {
   MONEY_MODES: TMoneyModes
   BIG_TRUCK_TRANSPORT_TYPES: TEntries
   BIG_TRUCK_CARGO_TYPES: TEntries
+  C_OPTIONS_VALID_KEYS: Record<string, boolean>
   CAR_CLASSES: Record<ICarClass['id'], ICarClass>
   DEFAULT_CAR_CLASS: ICarClass['id']
+  DRIVER_RESPONSE_MODE: EDriverResponseModes
   BOOKING_COMMENTS: Record<IBookingComment['id'], IBookingComment>
   BOOKING_LOCATION_CLASSES: IBookingLocationClass[]
   DEFAULT_BOOKING_LOCATION_CLASS: IBookingLocationClass['id']
@@ -204,14 +210,25 @@ class Constants {
       defaultValues.BIG_TRUCK_CARGO_TYPES,
       parseEntries,
     )
+    this.C_OPTIONS_VALID_KEYS = getConstantValue(
+      'c_options_valid_keys',
+      defaultValues.C_OPTIONS_VALID_KEYS,
+      JSON.parse,
+    )
     this.CAR_CLASSES = parseCarClasses(
       (window as any).data?.car_classes ?? defaultValues.CAR_CLASSES,
     )
     this.DEFAULT_CAR_CLASS = Object.keys(this.CAR_CLASSES)?.[0] ?? '-1'
+    this.DRIVER_RESPONSE_MODE = getConstantValue(
+      'mode_response',
+      defaultValues.DRIVER_RESPONSE_MODE,
+      value => +value,
+    )
     this.BOOKING_COMMENTS = (window as any).data?.booking_comments ?
-      Object.fromEntries(
-        Object.entries(defaultValues.BOOKING_COMMENTS)
-          .filter(([id]) => id in (window as any).data.booking_comments),
+      parseBookingComments(
+        (window as any).data.booking_comments,
+        getConstantValue('mode_response_other', ''),
+        defaultValues.BOOKING_COMMENTS,
       ) :
       defaultValues.BOOKING_COMMENTS
     this.BOOKING_LOCATION_CLASSES = parseBookingLocationClasses(

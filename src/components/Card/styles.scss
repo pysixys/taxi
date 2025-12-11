@@ -622,9 +622,12 @@ $high-profit-fg: #22A613;
         .btns {
           margin-top: 16px;
           display: flex;
+          flex-wrap: wrap;
           gap: 8px;
 
           .button__wrapper {
+            flex: auto;
+            width: auto;
             padding: 0;
             margin: 0;
 
@@ -638,7 +641,8 @@ $high-profit-fg: #22A613;
           }
 
           .input__field-wrapper {
-            grid-column: 1/3;
+            flex: none;
+            width: 100%;
           }
 
           button {

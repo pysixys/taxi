@@ -2,6 +2,7 @@ import moment from 'moment'
 import {
   ICity,
   ICarClass,
+  EBookingCommentTypes, IBookingComment,
   EBookingLocationKinds, IBookingLocationClass,
   TAvailableModes,
   TMoneyModes,
@@ -56,6 +57,26 @@ export function parseCarClasses(carClasses: any): Record<number, ICarClass> {
       booking_location_classes: carClass.booking_location_classes,
     }
   return value
+}
+
+export function parseBookingComments(
+  bookingComments: any,
+  responseModes: any = '',
+  predefined: Record<IBookingComment['id'], Partial<IBookingComment>> = {},
+): Record<IBookingComment['id'], IBookingComment> {
+  responseModes = Object.fromEntries(responseModes
+    .split(/\s*,\s*/)
+    .map((pair: any) => pair.split(/\s*=\s*/)),
+  )
+  return Object.fromEntries(Object.keys(bookingComments)
+    .map(id => [id, {
+      id,
+      type: EBookingCommentTypes.Any,
+      responseMode: responseModes[id],
+      internal: !(id in predefined),
+      ...(predefined[id] ?? {}),
+    }]),
+  )
 }
 
 export function parseBookingLocationClasses(

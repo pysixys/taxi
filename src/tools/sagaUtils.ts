@@ -156,33 +156,47 @@ export function* concurrency<TAction>(...sagas: IConcurrentSaga<TAction>[]) {
   }
 }
 
-interface WatchState {
+export interface WatchState<TKey = unknown> {
   listeners: number
+  key: TKey
 }
 
-export function* whileWatching(
+export function whileWatching(
   watchAction: ActionPattern,
   unwatchAction: ActionPattern,
-  loop: (state: WatchState) => SagaIterator<void> | Promise<void>,
+  loop: (state: WatchState<undefined>) => SagaIterator<void> | Promise<void>,
+): SagaIterator<void>
+export function whileWatching<TAction, TKey>( // eslint-disable-line no-redeclare
+  watchAction: ActionPattern,
+  unwatchAction: ActionPattern,
+  loop: (state: WatchState<TKey>) => SagaIterator<void> | Promise<void>,
+  key: (action: TAction) => TKey,
+): SagaIterator<void>
+export function* whileWatching<TAction, TKey>( // eslint-disable-line no-redeclare
+  watchAction: ActionPattern,
+  unwatchAction: ActionPattern,
+  loop: (state: WatchState<TKey>) => SagaIterator<void> | Promise<void>,
+  // @ts-ignore TS2322
+  key: (action: TAction) => TKey = () => undefined,
 ) {
-  const state: WatchState = { listeners: 0 }
-  const listenersChangeChannel = yield* call(channel)
+  const state = new Map<TKey, WatchState<TKey>>()
   yield all([
-    call(function*() {
-      while (true) {
-        if (state.listeners > 0)
-          yield* call(loop, state)
-        else
-          yield take(listenersChangeChannel)
+    takeEvery(watchAction, function*(action) {
+      const actionKey = key(action as TAction)
+      if (state.has(actionKey))
+        state.get(actionKey)!.listeners++
+      else {
+        const stateSlice = { listeners: 1, key: actionKey }
+        state.set(actionKey, stateSlice)
+        yield fork(function*() {
+          while (stateSlice.listeners > 0)
+            yield* call(loop, stateSlice)
+          state.delete(actionKey)
+        })
       }
     }),
-    takeEvery(watchAction, function*() {
-      state.listeners++
-      yield put(listenersChangeChannel, {})
-    }),
-    takeEvery(unwatchAction, function*() {
-      state.listeners--
-      yield put(listenersChangeChannel, {})
+    takeEvery(unwatchAction, action => {
+      state.get(key(action as TAction))!.listeners--
     }),
   ])
 }

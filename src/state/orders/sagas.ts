@@ -4,6 +4,7 @@ import { TAction } from '../../types'
 import { EUserRoles, EOrderTypes, IOrder } from '../../types/types'
 import SITE_CONSTANTS from '../../siteConstants'
 import {
+  WatchState,
   select, call, putResolve,
   concurrency, whileWatching,
 } from '../../tools/sagaUtils'
@@ -27,6 +28,7 @@ const ACTIVE_ORDERS_POLL_INTERVAL = 5000
 const DRIVER_ACTIVE_ORDERS_POLL_INTERVAL = 2000
 const READY_ORDERS_POLL_INTERVAL = 3000
 const HISTORY_ORDERS_POLL_INTERVAL = 10000
+const ORDER_POLL_INTERVAL = 2000
 
 export function* saga() {
   yield all([
@@ -55,11 +57,10 @@ export function* saga() {
       leading: true,
     }, {
       action: [
-        ActionTypes.WATCH_ORDER,
         ActionTypes.GET_ORDER_REQUEST,
         ActionTypes.UPDATE_SUCCESS,
       ],
-      saga: getOrderByIdSaga,
+      saga: getOrderSaga,
       parallelKey: 1,
       sequenceKey: ({ payload }: TAction) => payload,
       leading: ({ type, payload }: TAction) =>
@@ -67,80 +68,80 @@ export function* saga() {
       latest: ({ type, payload }: TAction) =>
         type === ActionTypes.UPDATE_SUCCESS ? payload : undefined,
     }),
-    call(watchActiveOrdersSaga),
-    call(watchReadyOrdersSaga),
-    call(watchHistoryOrdersSaga),
+    whileWatching(
+      ActionTypes.WATCH_ACTIVE_ORDERS, ActionTypes.UNWATCH_ACTIVE_ORDERS,
+      watchActiveOrdersSaga,
+    ),
+    whileWatching(
+      ActionTypes.WATCH_READY_ORDERS, ActionTypes.UNWATCH_READY_ORDERS,
+      watchReadyOrdersSaga,
+    ),
+    whileWatching(
+      ActionTypes.WATCH_HISTORY_ORDERS, ActionTypes.UNWATCH_HISTORY_ORDERS,
+      watchHistoryOrdersSaga,
+    ),
+    whileWatching(
+      ActionTypes.WATCH_ORDER, ActionTypes.UNWATCH_ORDER,
+      watchOrderSaga, ({ payload }: TAction) => payload,
+    ),
   ])
 }
 
 function* watchActiveOrdersSaga() {
-  yield* whileWatching(
-    ActionTypes.WATCH_ACTIVE_ORDERS,
-    ActionTypes.UNWATCH_ACTIVE_ORDERS,
-
-    function*() {
-      const user = yield* select(userSelector)
-      if (!user) {
-        yield take()
-        return
-      }
-
-      yield put({ type: ActionTypes.GET_ACTIVE_ORDERS_REQUEST })
-      yield take([
-        ActionTypes.GET_ACTIVE_ORDERS_SUCCESS,
-        ActionTypes.GET_ACTIVE_ORDERS_FAIL,
-      ])
-
-      const interval = user.u_role === EUserRoles.Driver ?
-        DRIVER_ACTIVE_ORDERS_POLL_INTERVAL :
-        ACTIVE_ORDERS_POLL_INTERVAL
-      yield delay(interval)
-    },
-  )
+  const user = yield* select(userSelector)
+  if (!user) {
+    yield take()
+    return
+  }
+  yield put({ type: ActionTypes.GET_ACTIVE_ORDERS_REQUEST })
+  yield take([
+    ActionTypes.GET_ACTIVE_ORDERS_SUCCESS,
+    ActionTypes.GET_ACTIVE_ORDERS_FAIL,
+  ])
+  const interval = user.u_role === EUserRoles.Driver ?
+    DRIVER_ACTIVE_ORDERS_POLL_INTERVAL :
+    ACTIVE_ORDERS_POLL_INTERVAL
+  yield delay(interval)
 }
 
 function* watchReadyOrdersSaga() {
-  yield* whileWatching(
-    ActionTypes.WATCH_READY_ORDERS,
-    ActionTypes.UNWATCH_READY_ORDERS,
-
-    function*() {
-      if (!(yield* select(userSelector))) {
-        yield take()
-        return
-      }
-
-      yield put({ type: ActionTypes.GET_READY_ORDERS_REQUEST })
-      yield take([
-        ActionTypes.GET_READY_ORDERS_SUCCESS,
-        ActionTypes.GET_READY_ORDERS_FAIL,
-      ])
-
-      yield delay(READY_ORDERS_POLL_INTERVAL)
-    },
-  )
+  if (!(yield* select(userSelector))) {
+    yield take()
+    return
+  }
+  yield put({ type: ActionTypes.GET_READY_ORDERS_REQUEST })
+  yield take([
+    ActionTypes.GET_READY_ORDERS_SUCCESS,
+    ActionTypes.GET_READY_ORDERS_FAIL,
+  ])
+  yield delay(READY_ORDERS_POLL_INTERVAL)
 }
 
 function* watchHistoryOrdersSaga() {
-  yield* whileWatching(
-    ActionTypes.WATCH_HISTORY_ORDERS,
-    ActionTypes.UNWATCH_HISTORY_ORDERS,
+  if (!(yield* select(userSelector))) {
+    yield take()
+    return
+  }
+  yield put({ type: ActionTypes.GET_HISTORY_ORDERS_REQUEST })
+  yield take([
+    ActionTypes.GET_HISTORY_ORDERS_SUCCESS,
+    ActionTypes.GET_HISTORY_ORDERS_FAIL,
+  ])
+  yield delay(HISTORY_ORDERS_POLL_INTERVAL)
+}
 
-    function*() {
-      if (!(yield* select(userSelector))) {
-        yield take()
-        return
-      }
-
-      yield put({ type: ActionTypes.GET_HISTORY_ORDERS_REQUEST })
-      yield take([
-        ActionTypes.GET_HISTORY_ORDERS_SUCCESS,
-        ActionTypes.GET_HISTORY_ORDERS_FAIL,
-      ])
-
-      yield delay(HISTORY_ORDERS_POLL_INTERVAL)
-    },
+function* watchOrderSaga({ key: id }: WatchState<IOrder['b_id']>) {
+  yield put({ type: ActionTypes.GET_ORDER_REQUEST, payload: id })
+  yield take(({ type, payload }: TAction) =>
+    type === ActionTypes.GET_ORDER_SUCCESS ?
+      payload.b_id === id :
+      type === ActionTypes.GET_ORDER_NOT_FOUND ?
+        payload === id :
+        type === ActionTypes.GET_ORDER_FAIL ?
+          payload.id === id :
+          false,
   )
+  yield delay(ORDER_POLL_INTERVAL)
 }
 
 function* getActiveOrdersSaga() {
@@ -250,20 +251,19 @@ function* getHistoryOrdersSaga() {
   }
 }
 
-function* getOrderByIdSaga({ payload }: TAction) {
+function* getOrderSaga({ payload: id }: TAction) {
   if (yield* select((state: IRootState) =>
-    !moduleSelector(state).orders.get(payload)?.mutations,
-  )) yield* getOrderSaga(payload)
-}
-
-function* getOrderSaga(id: IOrder['b_id']) {
-  try {
-    const order = yield* call(API.getOrder, id)
-    if (!order)
-      return
-    yield put({ type: ActionTypes.GET_ORDER_SUCCESS, payload: order })
-  } catch (error) {
-    yield put({ type: ActionTypes.GET_ORDER_FAIL, payload: { id, error } })
+    !moduleSelector(state).orders.get(id)?.mutations,
+  )) {
+    try {
+      const order = yield* call(API.getOrder, id)
+      if (order)
+        yield put({ type: ActionTypes.GET_ORDER_SUCCESS, payload: order })
+      else
+        yield put({ type: ActionTypes.GET_ORDER_NOT_FOUND, payload: id })
+    } catch (error) {
+      yield put({ type: ActionTypes.GET_ORDER_FAIL, payload: { id, error } })
+    }
   }
 }
 
@@ -284,11 +284,11 @@ function* cancelOrdersOnNextExpireSaga(orders: IOrder[]) {
     order.b_start_datetime ?
       Math.min(
         +order.b_start_datetime +
-          (order.b_max_waiting || SITE_CONSTANTS.WAITING_INTERVAL),
+          (order.b_max_waiting || SITE_CONSTANTS.WAITING_INTERVAL) * 1000,
         value,
       ) :
       value
-  , Infinity) * 1000 - +moment()
+  , Infinity) - +moment()
   if (nextCancel === Infinity)
     return null
   yield delay(nextCancel)

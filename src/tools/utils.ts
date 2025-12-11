@@ -538,10 +538,11 @@ export const formatCommentWithEmoji = (
   ids: IOrder['b_comments'],
 ) => {
   return ids
-    ?.filter(item => parseInt(item) < 99)
-    .map(item => ({
-      src: EMOJI[item],
-      hint: t(TRANSLATION.BOOKING_COMMENTS[item]),
+    ?.filter(id => parseInt(id) < 99)
+    .map(id => ({
+      id,
+      src: EMOJI[id],
+      hint: t(TRANSLATION.BOOKING_COMMENTS[id]),
     }))
 }
 

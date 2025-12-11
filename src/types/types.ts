@@ -130,6 +130,12 @@ export interface ICarOptions {
   performers_price: number
 }
 
+export enum EDriverResponseModes {
+  Performer = 0,
+  Candidate = 1,
+  ByOrder = 2
+}
+
 export enum EBookingCommentTypes {
   Any,
   Plane
@@ -138,6 +144,8 @@ export enum EBookingCommentTypes {
 export interface IBookingComment {
   id: string
   type: EBookingCommentTypes
+  responseMode?: EDriverResponseModes
+  internal?: boolean
 }
 
 export interface IDriver {

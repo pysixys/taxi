@@ -1,10 +1,12 @@
 import { ParametersExceptFirst, TAction } from '../../types'
 import { IOrder } from '../../types/types'
 import { IResponse } from '../../types/api'
+import { candidateMode }  from '../../tools/order'
 import * as API from '../../API'
-import { IDispatch } from '..'
+import { IRootState, IDispatch } from '..'
 import { watch as watchGeolocation } from '../geolocation/actionCreators'
 import { ActionTypes } from './constants'
+import { order as orderSelector } from './selectors'
 
 const READY_ORDERS_GEOLOCATION_INTERVAL = 1000 * 60 * 60
 
@@ -52,12 +54,19 @@ export const create = (
 export const cancel = (
   id: IOrder['b_id'],
   ...params: ParametersExceptFirst<typeof API.cancelDrive>
-) => APIMutationThunk(() => API.cancelDrive(id, ...params), id, true)
+) => APIMutationThunk(() => API.cancelDrive(id, ...params), id)
 
 export const take = (
   id: IOrder['b_id'],
-  ...params: ParametersExceptFirst<typeof API.takeOrder>
-) => mutationThunk(() => API.takeOrder(id, ...params), id, false)
+  options: Parameters<typeof API.takeOrder>[1],
+) => (
+  dispatch: IDispatch,
+  getState: () => IRootState,
+) => mutationThunk(() => API.takeOrder(
+  id,
+  options,
+  candidateMode(orderSelector(getState(), id) ?? undefined),
+), id)(dispatch)
 export const setState = (
   id: IOrder['b_id'],
   ...params: ParametersExceptFirst<typeof API.setOrderState>
@@ -66,7 +75,6 @@ export const setState = (
 function mutationThunk<TReturn>(
   mutation: () => Promise<TReturn>,
   id: IOrder['b_id'],
-  isDelete = false,
   isFail: (value: TReturn) => boolean = () => false,
 ) {
   return async(dispatch: IDispatch): Promise<TReturn> => {
@@ -76,9 +84,7 @@ function mutationThunk<TReturn>(
       dispatch({
         type: isFail(result) ?
           ActionTypes.MUTATION_FAIL :
-          isDelete ?
-            ActionTypes.DELETE_SUCCESS :
-            ActionTypes.UPDATE_SUCCESS,
+          ActionTypes.UPDATE_SUCCESS,
         payload: id,
       })
       return result
@@ -91,5 +97,4 @@ function mutationThunk<TReturn>(
 const APIMutationThunk = <TReturn extends IResponse<string, unknown>>(
   mutation: () => Promise<TReturn>,
   id: IOrder['b_id'],
-  isDelete = false,
-) => mutationThunk(mutation, id, isDelete, value => value.code !== '200')
+) => mutationThunk(mutation, id, value => value.code !== '200')

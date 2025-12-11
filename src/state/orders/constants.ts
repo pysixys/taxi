@@ -29,12 +29,12 @@ export const ActionTypes = {
   UNWATCH_ORDER: `${prefix}/UNWATCH_ORDER`,
   GET_ORDER_REQUEST: `${prefix}/GET_ORDER_REQUEST`,
   GET_ORDER_SUCCESS: `${prefix}/GET_ORDER_SUCCESS`,
+  GET_ORDER_NOT_FOUND: `${prefix}/GET_ORDER_NOT_FOUND`,
   GET_ORDER_FAIL: `${prefix}/GET_ORDER_FAIL`,
   CREATE_SUCCESS: `${prefix}/CREATE_SUCCESS`,
   MUTATION_START: `${prefix}/MUTATION_START`,
   MUTATION_FAIL: `${prefix}/MUTATION_FAIL`,
   UPDATE_SUCCESS: `${prefix}/UPDATE_SUCCESS`,
-  DELETE_SUCCESS: `${prefix}/DELETE_SUCCESS`,
 
   CLEAR: `${prefix}/CLEAR`,
 } as const
