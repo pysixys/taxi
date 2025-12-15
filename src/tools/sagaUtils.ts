@@ -130,13 +130,13 @@ export function* concurrency<TAction>(...sagas: IConcurrentSaga<TAction>[]) {
       if (
         (closestQueueItem && parallelKey !== closestQueueItem.parallelKey) ||
         runningSequences.has(sequenceKey)
-      )
-        break
+      ) break
       processedQueueItems++
 
       const { saga } = sagas[sagaIndex]
       let finished = false
-      const task: Task = yield fork(function*() {
+      let task: Task
+      task = yield fork(function*() {
         try {
           yield* saga(action)
         } finally {
